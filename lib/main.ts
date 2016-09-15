@@ -1,17 +1,16 @@
+import * as dartStyle from 'dart-style';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as ts from 'typescript';
 
 import * as base from './base';
 import {Set, TranspilerBase} from './base';
-
-import mkdirP from './mkdirp';
 import DeclarationTranspiler from './declaration';
+import {FacadeConverter, NameRewriter} from './facade_converter';
 import * as merge from './merge';
+import mkdirP from './mkdirp';
 import ModuleTranspiler from './module';
 import TypeTranspiler from './type';
-import {FacadeConverter, NameRewriter} from './facade_converter';
-import * as dartStyle from 'dart-style';
 
 export interface TranspilerOptions {
   /**
