@@ -1,0 +1,33 @@
+{
+  "version": "v4",
+  "repo": "borisyankov/DefinitelyTyped",
+  "ref": "master",
+  "path": "typings",
+  "bundle": "typings/tsd.d.ts",
+  "installed": {
+    "mocha/mocha.d.ts": {
+      "commit": "69bdfb0884020e41f17a1dd80ad4c77de2636874"
+    },
+    "chai/chai.d.ts": {
+      "commit": "69bdfb0884020e41f17a1dd80ad4c77de2636874"
+    },
+    "node/node.d.ts": {
+      "commit": "69bdfb0884020e41f17a1dd80ad4c77de2636874"
+    },
+    "source-map-support/source-map-support.d.ts": {
+      "commit": "69bdfb0884020e41f17a1dd80ad4c77de2636874"
+    },
+    "source-map/source-map.d.ts": {
+      "commit": "2520bce9a8a71b66e67487cbd5b33fec880b0c55"
+    },
+    "fs-extra/fs-extra.d.ts": {
+      "commit": "d5f92f93bdb49f332fa662ff1d0cc8700f02e4dc"
+    },
+    "minimist/minimist.d.ts": {
+      "commit": "8b7cc13f6dbabd0a49de7ccba75c342160e600ad"
+    },
+    "es6-promise/es6-promise.d.ts": {
+      "commit": "bcd5761826eb567876c197ccc6a87c4d05731054"
+    }
+  }
+}

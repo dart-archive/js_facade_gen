@@ -1,0 +1,5 @@
+name: e2e
+description: Transpiled end-to-end tests.
+
+dependencies:
+  test: 0.12.13

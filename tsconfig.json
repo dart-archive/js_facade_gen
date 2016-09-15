@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": true,
+    "noEmitOnError": true,
+    "noImplicitAny": true,
+    "allowUnreachableCode": false,
+    "target": "es5"
+  },
+  "exclude": [
+    "node_modules",
+    "build",
+    "test/e2e"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "name": "js_facade_gen",
+  "version": "0.0.1",
+  "description": "Generate Dart package:js JS Interop faces for arbitrary TypeScript libraries.",
+  "main": "build/lib/main.js",
+  "typings": "build/definitions/main.d.ts",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "dart-style": "^0.2.7",
+    "minimist": "^1.1.1",
+    "source-map": "^0.4.2",
+    "source-map-support": "^0.3.1",
+    "typescript": "v1.9.0-dev.20160409"
+  },
+  "devDependencies": {
+    "chai": "^2.1.1",
+    "clang-format": "^1.0.37",
+    "fs-extra": "^0.18.0",
+    "gulp": "^3.8.11",
+    "gulp-clang-format": "^1.0.21",
+    "gulp-mocha": "^2.0.0",
+    "gulp-sourcemaps": "^1.5.0",
+    "gulp-tslint": "^4.3.4",
+    "gulp-typescript": "^2.7.6",
+    "gulp-util": "^3.0.4",
+    "merge2": "^0.3.1",
+    "npm-release": "^1.0.0",
+    "temp": "^0.8.1",
+    "tsd": "^0.6.0",
+    "tslint": "^3.7.1",
+    "which": "^1.0.9"
+  },
+  "scripts": {
+    "prepublish": "npm install tsd@^0.6.0 && tsd reinstall --overwrite && gulp compile",
+    "test": "gulp test",
+    "release": "npm-release"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dart-lang/js_facade_gen.git"
+  },
+  "keywords": [
+    "typescript",
+    "dart"
+  ],
+  "contributors": [
+    "Jacob Richman <jacobr@google.com> (https://www.dartlang.org/)"
+  ],
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/dart-lang/js_facade_gen/issues"
+  },
+  "homepage": "https://github.com/dart-lang/js_facade_gen"
+}
