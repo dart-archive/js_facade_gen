@@ -250,7 +250,9 @@ export function isTypeNode(node: ts.Node): boolean {
 
 export function isCallable(decl: ClassLike): boolean {
   let members = decl.members as Array<ts.ClassElement>;
-  return members.some((member) => { return member.kind === ts.SyntaxKind.CallSignature; });
+  return members.some((member) => {
+    return member.kind === ts.SyntaxKind.CallSignature;
+  });
 }
 
 export function copyLocation(src: ts.TextRange, dest: ts.TextRange) {
@@ -328,21 +330,47 @@ export class TranspilerBase {
   private idCounter: number = 0;
   constructor(protected transpiler: Transpiler) {}
 
-  visit(n: ts.Node) { this.transpiler.visit(n); }
-  pushContext(context: OutputContext) { this.transpiler.pushContext(context); }
-  popContext() { this.transpiler.popContext(); }
-  emit(s: string) { this.transpiler.emit(s); }
-  emitNoSpace(s: string) { this.transpiler.emitNoSpace(s); }
-  emitType(s: string, comment: string) { this.transpiler.emitType(s, comment); }
-  maybeLineBreak() { return this.transpiler.maybeLineBreak(); }
-  enterCodeComment() { return this.transpiler.enterCodeComment(); }
-  exitCodeComment() { return this.transpiler.exitCodeComment(); }
+  visit(n: ts.Node) {
+    this.transpiler.visit(n);
+  }
+  pushContext(context: OutputContext) {
+    this.transpiler.pushContext(context);
+  }
+  popContext() {
+    this.transpiler.popContext();
+  }
+  emit(s: string) {
+    this.transpiler.emit(s);
+  }
+  emitNoSpace(s: string) {
+    this.transpiler.emitNoSpace(s);
+  }
+  emitType(s: string, comment: string) {
+    this.transpiler.emitType(s, comment);
+  }
+  maybeLineBreak() {
+    return this.transpiler.maybeLineBreak();
+  }
+  enterCodeComment() {
+    return this.transpiler.enterCodeComment();
+  }
+  exitCodeComment() {
+    return this.transpiler.exitCodeComment();
+  }
 
-  enterTypeArguments() { this.transpiler.enterTypeArgument(); }
-  exitTypeArguments() { this.transpiler.exitTypeArgument(); }
-  get insideTypeArgument() { return this.transpiler.insideTypeArgument; }
+  enterTypeArguments() {
+    this.transpiler.enterTypeArgument();
+  }
+  exitTypeArguments() {
+    this.transpiler.exitTypeArgument();
+  }
+  get insideTypeArgument() {
+    return this.transpiler.insideTypeArgument;
+  }
 
-  get insideCodeComment() { return this.transpiler.insideCodeComment; }
+  get insideCodeComment() {
+    return this.transpiler.insideCodeComment;
+  }
 
   getImportSummary(libraryUri: string): ImportSummary {
     if (!Object.hasOwnProperty.call(this.transpiler.imports, libraryUri)) {
@@ -390,11 +418,17 @@ export class TranspilerBase {
   }
 
 
-  reportError(n: ts.Node, message: string) { this.transpiler.reportError(n, message); }
+  reportError(n: ts.Node, message: string) {
+    this.transpiler.reportError(n, message);
+  }
 
-  visitNode(n: ts.Node): boolean { throw new Error('not implemented'); }
+  visitNode(n: ts.Node): boolean {
+    throw new Error('not implemented');
+  }
 
-  visitEach(nodes: ts.Node[]) { nodes.forEach((n) => this.visit(n)); }
+  visitEach(nodes: ts.Node[]) {
+    nodes.forEach((n) => this.visit(n));
+  }
 
   visitEachIfPresent(nodes?: ts.Node[]) {
     if (nodes) this.visitEach(nodes);
@@ -451,7 +485,9 @@ export class TranspilerBase {
     return null;
   }
 
-  hasAncestor(n: ts.Node, kind: ts.SyntaxKind): boolean { return !!getAncestor(n, kind); }
+  hasAncestor(n: ts.Node, kind: ts.SyntaxKind): boolean {
+    return !!getAncestor(n, kind);
+  }
 
   hasAnnotation(decorators: ts.NodeArray<ts.Decorator>, name: string): boolean {
     if (!decorators) return false;
@@ -473,7 +509,9 @@ export class TranspilerBase {
     return this.transpiler.getRelativeFileName(fileName);
   }
 
-  getDartFileName(fileName?: string): string { return this.transpiler.getDartFileName(fileName); }
+  getDartFileName(fileName?: string): string {
+    return this.transpiler.getDartFileName(fileName);
+  }
 
   maybeVisitTypeArguments(n: {typeArguments?: ts.NodeArray<ts.TypeNode>}) {
     if (n.typeArguments) {

@@ -60,5 +60,7 @@ class X {
   external y();
 }`);
   });
-  it('suppress new calls without arguments', () => { expectTranslate('new Foo;').to.equal(''); });
+  it('suppress new calls without arguments', () => {
+    expectTranslate('new Foo;').to.equal('');
+  });
 });

@@ -5,7 +5,9 @@ import {FacadeConverter, fixupIdentifierName} from './facade_converter';
 import {Transpiler} from './main';
 
 export default class TypeTranspiler extends base.TranspilerBase {
-  constructor(tr: Transpiler, private fc: FacadeConverter) { super(tr); }
+  constructor(tr: Transpiler, private fc: FacadeConverter) {
+    super(tr);
+  }
 
   visitNode(node: ts.Node): boolean {
     if (base.isTypeNode(node)) {

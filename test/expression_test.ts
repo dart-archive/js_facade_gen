@@ -49,7 +49,9 @@ describe('ignore expressions', () => {
       '1 <= 2',
     ]);
   });
-  it('compares identity', () => { expectEmptyTranslates(['1 === 2', '1 !== 2']); });
+  it('compares identity', () => {
+    expectEmptyTranslates(['1 === 2', '1 !== 2']);
+  });
   it('bit fiddles', () => {
     expectEmptyTranslates(
         ['x & 2', '1 & 2', '1 | 2', '1 ^ 2', '~1', '1 << 2', '1 >> 2', '0x1 & 0x2', '1 >>> 2']);
@@ -73,13 +75,27 @@ external get x;
 @JS()
 external set x(v);`);
   });
-  it('translates "in"', () => { expectTranslate('x in y').to.equal(''); });
-  it('translates "instanceof"', () => { expectTranslate('1 instanceof Foo').to.equal(''); });
-  it('translates "this"', () => { expectTranslate('this.x').to.equal(''); });
-  it('translates "delete"', () => { expectTranslate('delete x[y];').to.equal(''); });
-  it('translates "typeof"', () => { expectTranslate('typeof x;').to.equal(''); });
-  it('translates "void"', () => { expectTranslate('void x;').to.equal(''); });
-  it('translates parens', () => { expectTranslate('(1)').to.equal(''); });
+  it('translates "in"', () => {
+    expectTranslate('x in y').to.equal('');
+  });
+  it('translates "instanceof"', () => {
+    expectTranslate('1 instanceof Foo').to.equal('');
+  });
+  it('translates "this"', () => {
+    expectTranslate('this.x').to.equal('');
+  });
+  it('translates "delete"', () => {
+    expectTranslate('delete x[y];').to.equal('');
+  });
+  it('translates "typeof"', () => {
+    expectTranslate('typeof x;').to.equal('');
+  });
+  it('translates "void"', () => {
+    expectTranslate('void x;').to.equal('');
+  });
+  it('translates parens', () => {
+    expectTranslate('(1)').to.equal('');
+  });
 
   it('translates property paths', () => {
     expectTranslate('foo.bar;').to.equal('');

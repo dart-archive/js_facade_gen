@@ -43,9 +43,15 @@ export function parseFiles(nameToContent: StringMap): ts.Program {
       }
       return undefined;
     },
-    writeFile: function(name, text, writeByteOrderMark) { result = text; },
-    fileExists: (sourceName) => { return !!nameToContent[sourceName]; },
-    readFile: (filename): string => { throw new Error('unexpected call to readFile'); },
+    writeFile: function(name, text, writeByteOrderMark) {
+      result = text;
+    },
+    fileExists: (sourceName) => {
+      return !!nameToContent[sourceName];
+    },
+    readFile: (filename): string => {
+      throw new Error('unexpected call to readFile');
+    },
     getDefaultLibFileName: () => defaultLibName,
     useCaseSensitiveFileNames: () => false,
     getCanonicalFileName: (filename) => '../' + filename,

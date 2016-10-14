@@ -22,8 +22,12 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
   static NUM_FAKE_REST_PARAMETERS = 5;
 
-  setTypeChecker(tc: ts.TypeChecker) { this.tc = tc; }
-  setFacadeConverter(fc: FacadeConverter) { this.fc = fc; }
+  setTypeChecker(tc: ts.TypeChecker) {
+    this.tc = tc;
+  }
+  setFacadeConverter(fc: FacadeConverter) {
+    this.fc = fc;
+  }
 
   getJsPath(node: ts.Node, suppressUnneededPaths = true): string {
     let path: Array<String> = [];

@@ -120,7 +120,9 @@ export class Transpiler {
     this.errors = [];
 
     let sourceFileMap: {[s: string]: ts.SourceFile} = {};
-    sourceFiles.forEach((f: ts.SourceFile) => { sourceFileMap[f.fileName] = f; });
+    sourceFiles.forEach((f: ts.SourceFile) => {
+      sourceFileMap[f.fileName] = f;
+    });
 
     // Check for global module export declarations and propogate them to all modules they export.
     sourceFiles.forEach((f: ts.SourceFile) => {
@@ -199,7 +201,9 @@ export class Transpiler {
         let contents = fs.readFileSync(sourcePath, 'UTF-8');
         return ts.createSourceFile(sourceName, contents, COMPILER_OPTIONS.target, true);
       },
-      writeFile(name, text, writeByteOrderMark) { fs.writeFile(name, text); },
+      writeFile(name, text, writeByteOrderMark) {
+        fs.writeFile(name, text);
+      },
       fileExists: (filename) => fs.existsSync(filename),
       readFile: (filename) => fs.readFileSync(filename, 'utf-8'),
       getDefaultLibFileName: () => defaultLibFileName,
@@ -218,7 +222,9 @@ export class Transpiler {
     return this.normalizeSlashes(path.join(destinationRoot, relative));
   }
 
-  public pushContext(context: OutputContext) { this.outputStack.push(this.outputs[context]); }
+  public pushContext(context: OutputContext) {
+    this.outputStack.push(this.outputs[context]);
+  }
 
   public popContext() {
     if (this.outputStack.length === 0) {
@@ -346,20 +352,42 @@ export class Transpiler {
     return !('/' + this.currentFile.fileName).match(/\/index\.(js|es6|d\.ts|ts)$/);
   }
 
-  private get currentOutput(): Output { return this.outputStack[this.outputStack.length - 1]; }
+  private get currentOutput(): Output {
+    return this.outputStack[this.outputStack.length - 1];
+  }
 
-  emit(s: string) { this.currentOutput.emit(s); }
-  emitNoSpace(s: string) { this.currentOutput.emitNoSpace(s); }
-  maybeLineBreak() { return this.currentOutput.maybeLineBreak(); }
-  enterCodeComment() { return this.currentOutput.enterCodeComment(); }
-  exitCodeComment() { return this.currentOutput.exitCodeComment(); }
+  emit(s: string) {
+    this.currentOutput.emit(s);
+  }
+  emitNoSpace(s: string) {
+    this.currentOutput.emitNoSpace(s);
+  }
+  maybeLineBreak() {
+    return this.currentOutput.maybeLineBreak();
+  }
+  enterCodeComment() {
+    return this.currentOutput.enterCodeComment();
+  }
+  exitCodeComment() {
+    return this.currentOutput.exitCodeComment();
+  }
 
-  enterTypeArgument() { this.typeArgumentDepth++; }
-  exitTypeArgument() { this.typeArgumentDepth--; }
-  get insideTypeArgument(): boolean { return this.typeArgumentDepth > 0; }
+  enterTypeArgument() {
+    this.typeArgumentDepth++;
+  }
+  exitTypeArgument() {
+    this.typeArgumentDepth--;
+  }
+  get insideTypeArgument(): boolean {
+    return this.typeArgumentDepth > 0;
+  }
 
-  emitType(s: string, comment: string) { return this.currentOutput.emitType(s, comment); }
-  get insideCodeComment() { return this.currentOutput.insideCodeComment; }
+  emitType(s: string, comment: string) {
+    return this.currentOutput.emitType(s, comment);
+  }
+  get insideCodeComment() {
+    return this.currentOutput.insideCodeComment;
+  }
 
   reportError(n: ts.Node, message: string) {
     let file = n.getSourceFile() || this.currentFile;
@@ -405,7 +433,9 @@ export class Transpiler {
         'Unsupported node type ' + (<any>ts).SyntaxKind[node.kind] + ': ' + node.getFullText());
   }
 
-  private normalizeSlashes(path: string) { return path.replace(/\\/g, '/'); }
+  private normalizeSlashes(path: string) {
+    return path.replace(/\\/g, '/');
+  }
 
   private translateComment(comment: string): string {
     let rawComment = comment;

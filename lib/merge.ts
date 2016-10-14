@@ -132,7 +132,9 @@ export class MergedParameter {
     return ret;
   }
 
-  setOptional() { this.optional = true; }
+  setOptional() {
+    this.optional = true;
+  }
 
   private name: {[s: string]: boolean} = {};
   private type: MergedType;
@@ -308,8 +310,9 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
                 if (decl == null) return;
                 if (decl.kind !== ts.SyntaxKind.InterfaceDeclaration) return;
                 let interfaceDecl = decl as base.ExtendedInterfaceDeclaration;
-                if (!interfaceDecl.members.some(
-                        (member) => { return member.kind === ts.SyntaxKind.ConstructSignature; }))
+                if (!interfaceDecl.members.some((member) => {
+                      return member.kind === ts.SyntaxKind.ConstructSignature;
+                    }))
                   return;
 
                 if (interfaceDecl.classLikeVariableDeclaration == null) {

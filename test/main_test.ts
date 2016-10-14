@@ -162,8 +162,9 @@ class Foo {
     });
     it('translates .es6, .ts, and .js', () => {
       let transpiler = new main.Transpiler({basePath: undefined});
-      ['a.js', 'a.ts', 'a.es6'].forEach(
-          (n) => { chai.expect(transpiler.getOutputPath(n, '')).to.equal('a.dart'); });
+      ['a.js', 'a.ts', 'a.es6'].forEach((n) => {
+        chai.expect(transpiler.getOutputPath(n, '')).to.equal('a.dart');
+      });
     });
   });
 });

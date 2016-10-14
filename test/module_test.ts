@@ -7,15 +7,21 @@ import {FacadeConverter} from '../lib/facade_converter';
 import {expectTranslate, expectErroneousCode, translateSources} from './test_support';
 
 describe('imports', () => {
-  it('ignore import equals statements',
-     () => { expectTranslate('import x = require("y");').to.equal('import "y.dart" as x;'); });
-  it('ignore import from statements',
-     () => { expectTranslate('import {x,y} from "z";').to.equal(''); });
-  it('ignore import star', () => { expectTranslate('import * as foo from "z";').to.equal(''); });
-  it('ignore renamed imports',
-     () => { expectTranslate('import {Foo as Bar} from "baz";').to.equal(''); });
-  it('empty import spec generates safe Dart code',
-     () => { expectTranslate('import {} from "baz";').to.equal(''); });
+  it('ignore import equals statements', () => {
+    expectTranslate('import x = require("y");').to.equal('import "y.dart" as x;');
+  });
+  it('ignore import from statements', () => {
+    expectTranslate('import {x,y} from "z";').to.equal('');
+  });
+  it('ignore import star', () => {
+    expectTranslate('import * as foo from "z";').to.equal('');
+  });
+  it('ignore renamed imports', () => {
+    expectTranslate('import {Foo as Bar} from "baz";').to.equal('');
+  });
+  it('empty import spec generates safe Dart code', () => {
+    expectTranslate('import {} from "baz";').to.equal('');
+  });
 });
 
 describe('exports', () => {
@@ -33,12 +39,15 @@ class X {
   X.fakeConstructor$();
 }`);
   });
-  it('allows export declarations',
-     () => { expectTranslate('export * from "X";').to.equal('export "X.dart";'); });
-  it('allows export declarations',
-     () => { expectTranslate('export * from "./X";').to.equal('export "X.dart";'); });
-  it('allows named export declarations',
-     () => { expectTranslate('export {a, b} from "X";').to.equal('export "X.dart" show a, b;'); });
+  it('allows export declarations', () => {
+    expectTranslate('export * from "X";').to.equal('export "X.dart";');
+  });
+  it('allows export declarations', () => {
+    expectTranslate('export * from "./X";').to.equal('export "X.dart";');
+  });
+  it('allows named export declarations', () => {
+    expectTranslate('export {a, b} from "X";').to.equal('export "X.dart" show a, b;');
+  });
   it('ignores named export declarations', () => {
     expectTranslate(`declare module '../some_other_module' {
     interface Foo { }
@@ -54,8 +63,9 @@ class X {
   it('fails for exports without URLs', () => {
     expectErroneousCode('export {a as b};').to.throw('re-exports must have a module URL');
   });
-  it('fails for empty export specs',
-     () => { expectErroneousCode('export {} from "baz";').to.throw(/empty export list/); });
+  it('fails for empty export specs', () => {
+    expectErroneousCode('export {} from "baz";').to.throw(/empty export list/);
+  });
 });
 
 describe('module name', () => {
@@ -80,8 +90,9 @@ external get x;
 external set x(v);
 `);
   });
-  it('leaves relative paths alone',
-     () => { chai.expect(modTranspiler.getLibraryName('a/b')).to.equal('a.b'); });
+  it('leaves relative paths alone', () => {
+    chai.expect(modTranspiler.getLibraryName('a/b')).to.equal('a.b');
+  });
   it('handles reserved words', () => {
     chai.expect(modTranspiler.getLibraryName('/a/for/in/do/x')).to.equal('_for._in._do.x');
   });
@@ -92,6 +103,7 @@ external set x(v);
     chai.expect(modTranspiler.getLibraryName('a/x.ts')).to.equal('a.x');
     chai.expect(modTranspiler.getLibraryName('a/x.js')).to.equal('a.x');
   });
-  it('handles non word characters',
-     () => { chai.expect(modTranspiler.getLibraryName('a/%x.ts')).to.equal('a._x'); });
+  it('handles non word characters', () => {
+    chai.expect(modTranspiler.getLibraryName('a/%x.ts')).to.equal('a._x');
+  });
 });

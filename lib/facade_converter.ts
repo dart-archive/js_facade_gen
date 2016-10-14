@@ -82,7 +82,9 @@ class DartNameRecord {
 }
 
 export class DartLibrary {
-  constructor(private fileName: string) { this.usedNames = {}; }
+  constructor(private fileName: string) {
+    this.usedNames = {};
+  }
 
   /**
    * @returns {boolean} whether the name was added.
@@ -265,7 +267,9 @@ export class FacadeConverter extends base.TranspilerBase {
     }
   }
 
-  setTypeChecker(tc: ts.TypeChecker) { this.tc = tc; }
+  setTypeChecker(tc: ts.TypeChecker) {
+    this.tc = tc;
+  }
 
   pushTypeParameterNames(n: ts.FunctionLikeDeclaration) {
     if (!n.typeParameters) return;
@@ -322,7 +326,9 @@ export class FacadeConverter extends base.TranspilerBase {
   generateTypeList(types: ts.TypeNode[], options: TypeDisplayOptions, seperator = ','): string {
     let that = this;
     return types
-        .map((type) => { return that.generateDartTypeName(type, addInsideTypeArgument(options)); })
+        .map((type) => {
+          return that.generateDartTypeName(type, addInsideTypeArgument(options));
+        })
         .join(seperator);
   }
 
@@ -714,7 +720,9 @@ export class FacadeConverter extends base.TranspilerBase {
     // MergedType will also follow typed aliases, etc which allows us to avoid
     // including that logic here as well.
     let mergedType = new MergedType(this);
-    types.forEach((type) => { mergedType.merge(type); });
+    types.forEach((type) => {
+      mergedType.merge(type);
+    });
     return mergedType.toSimpleTypeNode();
   }
 

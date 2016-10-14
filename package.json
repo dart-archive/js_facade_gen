@@ -1,5 +1,5 @@
 {
-  "name": "js_facade_gen",
+  "name": "dart_js_facade_gen",
   "version": "0.0.1",
   "description": "Generate Dart package:js JS Interop faces for arbitrary TypeScript libraries.",
   "main": "build/lib/main.js",
@@ -16,13 +16,13 @@
   },
   "devDependencies": {
     "chai": "^2.1.1",
-    "clang-format": "^1.0.37",
+    "clang-format": "1.0.45",
     "fs-extra": "^0.18.0",
     "gulp": "^3.8.11",
-    "gulp-clang-format": "^1.0.21",
+    "gulp-clang-format": "1.0.23",
     "gulp-mocha": "^2.0.0",
     "gulp-sourcemaps": "^1.5.0",
-    "gulp-tslint": "^4.3.4",
+    "gulp-tslint": "4.3.5",
     "gulp-typescript": "^2.7.6",
     "gulp-util": "^3.0.4",
     "merge2": "^0.3.1",
@@ -46,7 +46,7 @@
     "dart"
   ],
   "contributors": [
-    "Jacob Richman <jacobr@google.com> (https://www.dartlang.org/)"
+    "Dart Team <mailto:misc@dartlang.org> (https://www.dartlang.org/)"
   ],
   "license": "Apache-2.0",
   "bugs": {
