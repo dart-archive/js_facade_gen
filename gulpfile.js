@@ -2,11 +2,14 @@ require('source-map-support').install();
 
 var clangFormat = require('clang-format');
 var formatter = require('gulp-clang-format');
+var fs = require('fs');
+var fsx = require('fs-extra');
 var gulp = require('gulp');
 var gutil = require('gulp-util');
 var merge = require('merge2');
 var mocha = require('gulp-mocha');
 var sourcemaps = require('gulp-sourcemaps');
+var spawn = require('child_process').spawn;
 var ts = require('gulp-typescript');
 var typescript = require('typescript');
 var style = require('dart-style');
