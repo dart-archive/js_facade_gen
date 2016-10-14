@@ -1,7 +1,75 @@
 import * as dartStyle from 'dart-style';
+import * as path from 'path';
 import * as ts from 'typescript';
 
 import {OutputContext, Transpiler} from './main';
+
+/**
+ * Map from identifier name to resolved type.
+ * Example: 'E' should map to a TypeNode for number when resolving a usage of MyArray<number>
+ * where MyArray is the alias type:
+ * type MyArray<E> = Array<T>
+ */
+export type ResolvedTypeMap = {
+  [name: string]: ts.TypeNode
+};
+
+/***
+ * Options for how TypeScript types are represented as Dart types.
+ */
+export interface TypeDisplayOptions {
+  /// We are displaying the type inside a comment so we don't have to restrict to valid Dart syntax.
+  /// For example, we can display string literal type using the regular TypeScript syntax.
+  ///
+  /// Example:
+  /// TypeScript type: number|string
+  /// Dart inside comment: num|String
+  /// Dart outside comment: dynamic /* num|string */
+  insideComment?: boolean;
+
+  /// Dart has additional restrictions for what types are valid to emit inside a type argument. For
+  /// example, "void" is not valid inside a type argument so Null has to be used instead.
+  ///
+  /// Example:
+  /// TypeScript type: Foo<void>
+  /// Dart inside type argument: Foo<Null>
+  /// Dart outside type argument: N/A
+  /// TypeScript type: bar():void
+  /// Dart inside type argument: N/A
+  /// Dart outside type argument: void bar();
+  insideTypeArgument?: boolean;
+
+  /// Indicates that we should not append an additional comment indicating what the true TypeScript
+  /// type was for cases where Dart cannot express the type precisely.
+  ///
+  /// Example:
+  /// TypeScript type: number|string
+  /// Dart hide comment: dynamic
+  /// Dart show comment: dynamic /*number|string*/
+  hideComment?: boolean;
+
+  /**
+   * Type arguments associated with the current type to display.
+   * Arguments are emitted directly in normal cases but in the case of type aliases we have to
+   * propagate and substitute type arguments.
+   */
+  typeArguments?: ts.TypeNode[];
+
+  /**
+   * Parameter declarations to substitute. This is required to support type aliases with type
+   * arguments that are not representable in Dart.
+   */
+  resolvedTypeArguments?: ResolvedTypeMap;
+}
+
+/**
+ * Summary information on what is imported via a particular import.
+ */
+export class ImportSummary {
+  showAll: boolean = false;
+  shown: Set = {};
+  asPrefix: string;
+}
 
 export type ClassLike = ts.ClassDeclaration | ts.InterfaceDeclaration;
 export type NamedDeclaration = ClassLike | ts.PropertyDeclaration | ts.VariableDeclaration |
@@ -11,8 +79,22 @@ export type Set = {
   [s: string]: boolean
 };
 
+/**
+ * Interface extending the true InterfaceDeclaration interface to add optional state we store on
+ * interfaces to simplify conversion to Dart classes.
+ */
+export interface ExtendedInterfaceDeclaration extends ts.InterfaceDeclaration {
+  /**
+   * VariableDeclaration associated with this interface that we want to treat as the concrete
+   * location of this interface to enable interfaces that act like constructors.
+   * Because Dart does not permit calling objects like constructors we have to add this workaround.
+   */
+  classLikeVariableDeclaration?: ts.VariableDeclaration;
+}
+
 export function ident(n: ts.Node): string {
   if (n.kind === ts.SyntaxKind.Identifier) return (<ts.Identifier>n).text;
+  if (n.kind === ts.SyntaxKind.FirstLiteralToken) return (n as ts.LiteralLikeNode).text;
   if (n.kind === ts.SyntaxKind.QualifiedName) {
     let qname = (<ts.QualifiedName>n);
     let leftName = ident(qname.left);
@@ -60,12 +142,36 @@ export function isCallableType(type: ts.TypeNode, tc: ts.TypeChecker): boolean {
   return false;
 }
 
+/**
+ * Returns whether a type declaration is on we can generate a named Dart type for.
+ * For unsupported alias types we need to manually substitute the expression
+ * the alias corresponds to in call sites.
+ */
+export function supportedTypeDeclaration(decl: ts.Declaration): boolean {
+  if (decl.kind === ts.SyntaxKind.TypeAliasDeclaration) {
+    let alias = decl as ts.TypeAliasDeclaration;
+    let kind = alias.type.kind;
+    return kind === ts.SyntaxKind.TypeLiteral || kind === ts.SyntaxKind.FunctionType;
+  }
+  return true;
+}
+
 export function isFunctionType(type: ts.TypeNode, tc: ts.TypeChecker): boolean {
   let kind = type.kind;
   if (kind === ts.SyntaxKind.FunctionType) return true;
   if (kind === ts.SyntaxKind.TypeReference) {
     let t = tc.getTypeAtLocation(type);
     if (t.symbol && t.symbol.flags & ts.SymbolFlags.Function) return true;
+  }
+
+  if (kind === ts.SyntaxKind.IntersectionType) {
+    let types = (<ts.IntersectionTypeNode>type).types;
+    for (let i = 0; i < types.length; ++i) {
+      if (isFunctionType(types[i], tc)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   if (kind === ts.SyntaxKind.UnionType) {
@@ -92,9 +198,34 @@ export function isFunctionType(type: ts.TypeNode, tc: ts.TypeChecker): boolean {
   return false;
 }
 
+/**
+ * Whether a parameter declaration is specifying information about the type of "this" passed to
+ * the function instead of being a normal type parameter representable by a Dart type.
+ */
+export function isThisParameter(param: ts.ParameterDeclaration): boolean {
+  return param.name && param.name.kind === ts.SyntaxKind.Identifier &&
+      (param.name as ts.Identifier).text === 'this';
+}
+
+/**
+ * Dart does not have a concept of binding the type of the "this" parameter to a method.
+ */
+export function filterThisParameter(params: ts.ParameterDeclaration[]): ts.ParameterDeclaration[] {
+  let ret: ts.ParameterDeclaration[] = [];
+  for (let i = 0; i < params.length; i++) {
+    let param = params[i];
+    if (!isThisParameter(param)) {
+      ret.push(param);
+    }
+  }
+  return ret;
+}
+
 export function isTypeNode(node: ts.Node): boolean {
   switch (node.kind) {
+    case ts.SyntaxKind.IntersectionType:
     case ts.SyntaxKind.UnionType:
+    case ts.SyntaxKind.ParenthesizedType:
     case ts.SyntaxKind.TypeReference:
     case ts.SyntaxKind.TypeLiteral:
     case ts.SyntaxKind.LastTypeNode:
@@ -105,9 +236,12 @@ export function isTypeNode(node: ts.Node): boolean {
     case ts.SyntaxKind.NumberKeyword:
     case ts.SyntaxKind.StringKeyword:
     case ts.SyntaxKind.VoidKeyword:
+    case ts.SyntaxKind.NullKeyword:
+    case ts.SyntaxKind.UndefinedKeyword:
     case ts.SyntaxKind.BooleanKeyword:
     case ts.SyntaxKind.AnyKeyword:
     case ts.SyntaxKind.FunctionType:
+    case ts.SyntaxKind.ThisType:
       return true;
     default:
       return false;
@@ -141,11 +275,12 @@ export function getAncestor(n: ts.Node, kind: ts.SyntaxKind): ts.Node {
 }
 
 export function getEnclosingClass(n: ts.Node): ClassLike {
-  for (let parent = n.parent; parent; parent = parent.parent) {
-    if (parent.kind === ts.SyntaxKind.ClassDeclaration ||
-        parent.kind === ts.SyntaxKind.InterfaceDeclaration) {
-      return <ClassLike>parent;
+  while (n) {
+    if (n.kind === ts.SyntaxKind.ClassDeclaration ||
+        n.kind === ts.SyntaxKind.InterfaceDeclaration) {
+      return <ClassLike>n;
     }
+    n = n.parent;
   }
   return null;
 }
@@ -158,10 +293,10 @@ export function isInsideConstExpr(node: ts.Node): boolean {
   return isConstCall(<ts.CallExpression>getAncestor(node, ts.SyntaxKind.CallExpression));
 }
 
-export function formatType(s: string, comment: string, insideCodeComment: boolean): string {
-  if (!comment) {
+export function formatType(s: string, comment: string, options: TypeDisplayOptions): string {
+  if (!comment || options.hideComment) {
     return s;
-  } else if (insideCodeComment) {
+  } else if (options.insideComment) {
     // When inside a comment we only need to emit the comment version which
     // is the syntax we would like to use if Dart supported all language
     // features we would like to use for interop.
@@ -202,16 +337,58 @@ export class TranspilerBase {
   maybeLineBreak() { return this.transpiler.maybeLineBreak(); }
   enterCodeComment() { return this.transpiler.enterCodeComment(); }
   exitCodeComment() { return this.transpiler.exitCodeComment(); }
+
+  enterTypeArguments() { this.transpiler.enterTypeArgument(); }
+  exitTypeArguments() { this.transpiler.exitTypeArgument(); }
+  get insideTypeArgument() { return this.transpiler.insideTypeArgument; }
+
   get insideCodeComment() { return this.transpiler.insideCodeComment; }
 
-  emitImport(toEmit: string) {
-    if (!this.transpiler.importsEmitted[toEmit]) {
-      this.pushContext(OutputContext.Import);
-      this.emit(`import "${toEmit}";`);
-      this.transpiler.importsEmitted[toEmit] = true;
-      this.popContext();
+  getImportSummary(libraryUri: string): ImportSummary {
+    if (!Object.hasOwnProperty.call(this.transpiler.imports, libraryUri)) {
+      let summary = new ImportSummary();
+      this.transpiler.imports[libraryUri] = summary;
+      return summary;
     }
+    return this.transpiler.imports[libraryUri];
   }
+
+  /**
+   * Add an import. If an identifier is specified, only show that name.
+   */
+  addImport(libraryUri: string, identifier?: string): ImportSummary {
+    let summary = this.getImportSummary(libraryUri);
+    if (identifier) {
+      summary.shown[identifier] = true;
+    } else {
+      summary.showAll = true;
+    }
+    return summary;
+  }
+
+  /**
+   * Return resolved named possibly including a prefix for the identifier.
+   */
+  resolveImportForSourceFile(sourceFile: ts.SourceFile, context: ts.SourceFile, identifier: string):
+      string {
+    if (sourceFile === context) return identifier;
+    if (sourceFile.hasNoDefaultLib) {
+      // We don't want to emit imports to default lib libraries as we replace with Dart equivalents
+      // such as dart:html, etc.
+      return identifier;
+    }
+    let relativePath = path.relative(path.dirname(context.fileName), sourceFile.fileName);
+    // TODO(jacobr): actually handle imports in different directories. We assume for now that all
+    // files in a library will be output to a single directory for codegen simplicity.
+    let parts = this.getDartFileName(relativePath).split('/');
+    let fileName = parts[parts.length - 1];
+    let identifierParts = identifier.split('.');
+    identifier = identifierParts[identifierParts.length - 1];
+    let summary = this.addImport(this.transpiler.getDartFileName(fileName), identifier);
+    if (summary.asPrefix) return summary.asPrefix + '.' + identifier;
+    return identifier;
+  }
+
 
   reportError(n: ts.Node, message: string) { this.transpiler.reportError(n, message); }
 
@@ -228,6 +405,31 @@ export class TranspilerBase {
       this.visit(nodes[i]);
       if (i < nodes.length - 1) this.emitNoSpace(separator);
     }
+  }
+
+  /**
+   * Returns whether any parameters were actually emitted.
+   */
+  visitParameterList(nodes: ts.ParameterDeclaration[]): boolean {
+    let emittedParameters = false;
+    for (let i = 0; i < nodes.length; ++i) {
+      let param = nodes[i];
+      if (!this.insideCodeComment && isThisParameter(param)) {
+        // Emit the this type in a comment as it could be of interest to Dart users who are
+        // calling allowInteropCaptureThis to bind a Dart method.
+        this.enterCodeComment();
+        this.visit(param.type);
+        this.emit('this');
+        this.exitCodeComment();
+        continue;
+      }
+      if (emittedParameters) {
+        this.emitNoSpace(',');
+      }
+      this.visit(param);
+      emittedParameters = true;
+    }
+    return emittedParameters;
   }
 
   uniqueId(name: string): string {
@@ -271,16 +473,14 @@ export class TranspilerBase {
     return this.transpiler.getRelativeFileName(fileName);
   }
 
+  getDartFileName(fileName?: string): string { return this.transpiler.getDartFileName(fileName); }
+
   maybeVisitTypeArguments(n: {typeArguments?: ts.NodeArray<ts.TypeNode>}) {
     if (n.typeArguments) {
-      // If it's a single type argument `<void>`, ignore it and emit nothing.
-      // This is particularly useful for `Promise<void>`, see
-      // https://github.com/dart-lang/sdk/issues/2231#issuecomment-108313639
-      if (n.typeArguments.length === 1 && n.typeArguments[0].kind === ts.SyntaxKind.VoidKeyword) {
-        return;
-      }
       this.emitNoSpace('<');
+      this.enterTypeArguments();
       this.visitList(n.typeArguments);
+      this.exitTypeArguments();
       this.emitNoSpace('>');
     }
   }
@@ -298,16 +498,17 @@ export class TranspilerBase {
       }
     }
 
+    let hasValidParameters = false;
     if (firstInitParamIdx !== 0) {
       let requiredParams = parameters.slice(0, firstInitParamIdx);
-      this.visitList(requiredParams);
+      hasValidParameters = this.visitParameterList(requiredParams);
     }
 
     if (firstInitParamIdx !== parameters.length) {
-      if (firstInitParamIdx !== 0) this.emitNoSpace(',');
+      if (hasValidParameters) this.emitNoSpace(',');
       let positionalOptional = parameters.slice(firstInitParamIdx, parameters.length);
       this.emit('[');
-      this.visitList(positionalOptional);
+      this.visitParameterList(positionalOptional);
       this.emitNoSpace(']');
     }
 

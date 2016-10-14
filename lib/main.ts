@@ -1,17 +1,16 @@
+import * as dartStyle from 'dart-style';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as ts from 'typescript';
 
 import * as base from './base';
-import {Set, TranspilerBase} from './base';
-
-import mkdirP from './mkdirp';
+import {ImportSummary, TranspilerBase} from './base';
 import DeclarationTranspiler from './declaration';
+import {FacadeConverter} from './facade_converter';
 import * as merge from './merge';
+import mkdirP from './mkdirp';
 import ModuleTranspiler from './module';
 import TypeTranspiler from './type';
-import {FacadeConverter, NameRewriter} from './facade_converter';
-import * as dartStyle from 'dart-style';
 
 export interface TranspilerOptions {
   /**
@@ -19,17 +18,17 @@ export interface TranspilerOptions {
    * directly to the offending line.
    */
   failFast?: boolean;
-  /** Whether to generate 'library a.b.c;' names from relative file paths. */
-  generateLibraryName?: boolean;
+  /**
+   * Specify the module name (e.g.) d3 instead of determining the module name from the d.ts files.
+   * This is useful for libraries that assume they will be loaded with a JS module loader but that
+   * Dart needs to load without a module loader until Dart supports JS module loaders.
+   */
+  moduleName?: string;
   /**
    * A base path to relativize absolute file paths against. This is useful for library name
    * generation (see above) and nicer file names in error messages.
    */
   basePath?: string;
-  /**
-   * Use dart:html instead of the raw JavaScript DOM when generated Dart code.
-   */
-  useHtml?: boolean;
   /**
    * Enforce conventions of public/private keyword and underscore prefix
    */
@@ -72,7 +71,10 @@ export class Transpiler {
   private outputs: Output[];
   private outputStack: Output[];
   private currentFile: ts.SourceFile;
-  importsEmitted: Set;
+  /**
+   * Map of import library path to a Set of identifier names being imported.
+   */
+  imports: ts.Map<ImportSummary>;
   // Comments attach to all following AST nodes before the next 'physical' token. Track the earliest
   // offset to avoid printing comments multiple times.
   private lastCommentIdx: number = -1;
@@ -81,16 +83,16 @@ export class Transpiler {
   private transpilers: TranspilerBase[];
   private declarationTranspiler: DeclarationTranspiler;
   private fc: FacadeConverter;
-  private nameRewriter: NameRewriter;
+  /* Number of nested levels of type arguments the current expression is within. */
+  private typeArgumentDepth = 0;
 
   constructor(private options: TranspilerOptions = {}) {
-    this.nameRewriter = new NameRewriter();
-    this.fc = new FacadeConverter(this, options.typingsRoot, this.nameRewriter, options.useHtml);
+    this.fc = new FacadeConverter(this, options.typingsRoot);
     this.declarationTranspiler = new DeclarationTranspiler(
         this, this.fc, options.enforceUnderscoreConventions, options.promoteFunctionLikeMembers);
     this.transpilers = [
+      new ModuleTranspiler(this, this.fc, options.moduleName),
       this.declarationTranspiler,
-      new ModuleTranspiler(this, this.fc, options.generateLibraryName),
       new TypeTranspiler(this, this.fc),
     ];
   }
@@ -106,11 +108,6 @@ export class Transpiler {
     }
     fileNames = fileNames.map((f) => this.normalizeSlashes(f));
     let host = this.createCompilerHost();
-    if (this.options.basePath && destination === undefined) {
-      throw new Error(
-          'Must have a destination path when a basePath is specified ' + this.options.basePath);
-    }
-    let destinationRoot = destination || this.options.basePath || '';
     let program = ts.createProgram(fileNames, this.getCompilerOptions(), host);
     this.fc.setTypeChecker(program.getTypeChecker());
     this.declarationTranspiler.setTypeChecker(program.getTypeChecker());
@@ -122,11 +119,47 @@ export class Transpiler {
 
     this.errors = [];
 
+    let sourceFileMap: {[s: string]: ts.SourceFile} = {};
+    sourceFiles.forEach((f: ts.SourceFile) => { sourceFileMap[f.fileName] = f; });
+
+    // Check for global module export declarations and propogate them to all modules they export.
+    sourceFiles.forEach((f: ts.SourceFile) => {
+      f.statements.forEach((n: ts.Node) => {
+        if (n.kind !== ts.SyntaxKind.GlobalModuleExportDeclaration) return;
+        // This is the name we are interested in for Dart purposes until Dart supports AMD module
+        // loaders. This module name should all be reflected by all modules exported by this
+        // library as we need to specify a global module location for every Dart library.
+        let globalModuleName = base.ident((n as ts.GlobalModuleExportDeclaration).name);
+        f.moduleName = globalModuleName;
+
+        f.statements.forEach((e: ts.Node) => {
+          if (e.kind !== ts.SyntaxKind.ExportDeclaration) return;
+          let exportDecl = e as ts.ExportDeclaration;
+          if (!exportDecl.moduleSpecifier) return;
+          let moduleLocation = <ts.StringLiteral>exportDecl.moduleSpecifier;
+          let location = moduleLocation.text;
+          let resolvedPath = host.resolveModuleNames([location], f.fileName);
+          resolvedPath.forEach((p) => {
+            if (p.isExternalLibraryImport) return;
+            let exportedFile = sourceFileMap[p.resolvedFileName];
+            exportedFile.moduleName = globalModuleName;
+          });
+        });
+      });
+    });
+
     sourceFiles.forEach((f: ts.SourceFile) => {
       let dartCode = this.translate(f);
-      let outputFile = this.getOutputPath(path.resolve(f.fileName), destinationRoot);
-      mkdirP(path.dirname(outputFile));
-      fs.writeFileSync(outputFile, dartCode);
+
+      if (destination) {
+        let outputFile = this.getOutputPath(path.resolve(f.fileName), destination);
+        console.log('Output file:', outputFile);
+        mkdirP(path.dirname(outputFile));
+        fs.writeFileSync(outputFile, dartCode);
+      } else {
+        // Write source code directly to the console when no destination is specified.
+        console.log(dartCode);
+      }
     });
     this.checkForErrors(program);
   }
@@ -181,9 +214,8 @@ export class Transpiler {
 
   // Visible for testing.
   getOutputPath(filePath: string, destinationRoot: string): string {
-    let relative = this.getRelativeFileName(filePath);
-    let dartFile = relative.replace(/.(js|es6|d\.ts|ts)$/, '.dart');
-    return this.normalizeSlashes(path.join(destinationRoot, dartFile));
+    let relative = this.getDartFileName(filePath);
+    return this.normalizeSlashes(path.join(destinationRoot, relative));
   }
 
   public pushContext(context: OutputContext) { this.outputStack.push(this.outputs[context]); }
@@ -199,13 +231,13 @@ export class Transpiler {
     this.currentFile = sourceFile;
     this.outputs = [];
     this.outputStack = [];
-    this.importsEmitted = {};
+    this.imports = {};
     for (let i = 0; i < NUM_OUTPUT_CONTEXTS; ++i) {
       this.outputs.push(new Output());
     }
 
     this.lastCommentIdx = -1;
-    merge.normalizeSourceFile(sourceFile);
+    merge.normalizeSourceFile(sourceFile, this.fc);
     this.pushContext(OutputContext.Default);
     this.visit(sourceFile);
     this.popContext();
@@ -214,6 +246,25 @@ export class Transpiler {
           sourceFile, 'Internal error managing output contexts. ' +
               'Inconsistent push and pop context calls.');
     }
+    this.pushContext(OutputContext.Import);
+
+    for (let name of Object.getOwnPropertyNames(this.imports)) {
+      let summary = this.imports[name];
+      this.emit(`import ${JSON.stringify(name)}`);
+
+      if (!summary.showAll) {
+        let shownNames = Object.getOwnPropertyNames(summary.shown);
+        if (shownNames.length > 0) {
+          this.emit(`show ${shownNames.join(', ')}`);
+        }
+      }
+      if (summary.asPrefix) {
+        this.emit(`as ${summary.asPrefix}`);
+      }
+      this.emit(';\n');
+    }
+    this.popContext();
+
     let result = '';
     for (let output of this.outputs) {
       result += output.getResult();
@@ -267,9 +318,9 @@ export class Transpiler {
    * Returns `filePath`, relativized to the program's `basePath`.
    * @param filePath Optional path to relativize, defaults to the current file's path.
    */
-  getRelativeFileName(filePath?: string) {
+  getRelativeFileName(filePath?: string): string {
     if (filePath === undefined) filePath = path.resolve(this.currentFile.fileName);
-    // TODO(martinprobst): Use path.isAbsolute on node v0.12.
+    // TODO(jacobr): Use path.isAbsolute on node v0.12.
     if (this.normalizeSlashes(path.resolve('/x/', filePath)) !== filePath) {
       return filePath;  // already relative.
     }
@@ -280,6 +331,21 @@ export class Transpiler {
     return this.normalizeSlashes(path.relative(base, filePath));
   }
 
+  getDartFileName(filePath?: string): string {
+    if (filePath === undefined) filePath = path.resolve(this.currentFile.fileName);
+    filePath = this.normalizeSlashes(filePath);
+    filePath = filePath.replace(/\.(js|es6|d\.ts|ts)$/, '.dart');
+    // Normalize from node module file path pattern to
+    filePath = filePath.replace(/([^/]+)\/index.dart$/, '$1.dart');
+    return this.getRelativeFileName(filePath);
+  }
+
+  isJsModuleFile(): boolean {
+    // Treat files as being part of js modules if they match the node module file naming convention
+    // of module_name/index.js.
+    return !('/' + this.currentFile.fileName).match(/\/index\.(js|es6|d\.ts|ts)$/);
+  }
+
   private get currentOutput(): Output { return this.outputStack[this.outputStack.length - 1]; }
 
   emit(s: string) { this.currentOutput.emit(s); }
@@ -287,6 +353,11 @@ export class Transpiler {
   maybeLineBreak() { return this.currentOutput.maybeLineBreak(); }
   enterCodeComment() { return this.currentOutput.enterCodeComment(); }
   exitCodeComment() { return this.currentOutput.exitCodeComment(); }
+
+  enterTypeArgument() { this.typeArgumentDepth++; }
+  exitTypeArgument() { this.typeArgumentDepth--; }
+  get insideTypeArgument(): boolean { return this.typeArgumentDepth > 0; }
+
   emitType(s: string, comment: string) { return this.currentOutput.emitType(s, comment); }
   get insideCodeComment() { return this.currentOutput.insideCodeComment; }
 
@@ -411,9 +482,9 @@ class Output {
   }
 
   emit(str: string) {
-    if (this.result.length > 0) {
-      let buffer = this.insideCodeComment ? this.codeCommentResult : this.result;
-      let lastChar = buffer[buffer.length - 1];
+    let buffer = this.insideCodeComment ? this.codeCommentResult : this.result;
+    if (buffer.length > 0) {
+      let lastChar = buffer.slice(-1);
       if (lastChar !== ' ' && lastChar !== '(' && lastChar !== '<' && lastChar !== '[') {
         // Avoid emitting a space in obvious cases where a space is not required
         // to make the output slightly prettier in cases where the DartFormatter
@@ -432,7 +503,7 @@ class Output {
       return;
     }
     this.result += str;
-    this.firstColumn = str[str.length - 1] === '\n';
+    this.firstColumn = str.slice(-1) === '\n';
   }
 
   enterCodeComment() {
@@ -493,7 +564,7 @@ if (require.main === module) {
   let args = require('minimist')(process.argv.slice(2), {base: 'string'});
   try {
     let transpiler = new Transpiler(args);
-    console.error('Transpiling', args._, 'to', args.destination);
+    if (args.destination) console.error('Transpiling', args._, 'to', args.destination);
     transpiler.transpile(args._, args.destination);
   } catch (e) {
     if (e.name !== 'DartFacadeError') throw e;

@@ -392,6 +392,62 @@ abstract class X {
   external factory X({String x, y});
 }`);
   });
+
+  it('supports interfaces with constructors', () => {
+    expectTranslate(`
+interface XStatic {
+  new (a: string, b): X;
+  foo();
+}
+
+declare var X: XStatic;
+`).to.equal(`@JS("X")
+abstract class XStatic {
+  external factory XStatic(String a, b);
+  external foo();
+}
+
+@JS()
+external XStatic get X;
+@JS()
+external set X(XStatic v);`);
+
+    expectTranslate(`
+interface XStatic {
+  new (a: string, b): XStatic;
+  foo();
+}
+
+declare module Foo {
+  declare var X: XStatic;
+}
+`).to.equal(`@JS("Foo.X")
+abstract class XStatic {
+  external factory XStatic(String a, b);
+  external foo();
+}
+
+// Module Foo
+@JS("Foo.X")
+external XStatic get X;
+@JS("Foo.X")
+external set X(XStatic v);
+// End module Foo`);
+
+    // Case where we cannot find a variable matching the interface so it is unsafe to give the
+    // interface a constructor.
+    expectTranslate(`
+interface XStatic {
+  new (a: string|bool, b): XStatic;
+  foo();
+}`).to.equal(`@anonymous
+@JS()
+abstract class XStatic {
+  // Constructors on anonymous interfaces are not yet supported.
+  /*external factory XStatic(String|bool a, b);*/
+  external foo();
+}`);
+  });
 });
 
 describe('single call signature interfaces', () => {

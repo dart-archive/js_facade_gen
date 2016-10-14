@@ -2,29 +2,18 @@
 import chai = require('chai');
 import main = require('../lib/main');
 import ModuleTranspiler from '../lib/module';
-import {FacadeConverter, NameRewriter} from '../lib/facade_converter';
+import {FacadeConverter} from '../lib/facade_converter';
 
 import {expectTranslate, expectErroneousCode, translateSources} from './test_support';
 
 describe('imports', () => {
-  it('translates import equals statements', () => {
-    expectTranslate('import x = require("y");').to.equal('import "package:y.dart" as x;');
-  });
-  it('translates import from statements', () => {
-    expectTranslate('import {x,y} from "z";').to.equal('import "package:z.dart" show x, y;');
-  });
-  it('translates import star', () => {
-    expectTranslate('import * as foo from "z";').to.equal('import "package:z.dart" as foo;');
-  });
-  it('allows import dart file from relative path', () => {
-    expectTranslate('import x = require("./y")').to.equal('import "y.dart" as x;');
-    expectTranslate('import {x} from "./y"').to.equal('import "y.dart" show x;');
-    expectTranslate('import {x} from "../y"').to.equal('import "../y.dart" show x;');
-  });
-  it('fails for renamed imports', () => {
-    expectErroneousCode('import {Foo as Bar} from "baz";')
-        .to.throw(/import\/export renames are unsupported in Dart/);
-  });
+  it('ignore import equals statements',
+     () => { expectTranslate('import x = require("y");').to.equal('import "y.dart" as x;'); });
+  it('ignore import from statements',
+     () => { expectTranslate('import {x,y} from "z";').to.equal(''); });
+  it('ignore import star', () => { expectTranslate('import * as foo from "z";').to.equal(''); });
+  it('ignore renamed imports',
+     () => { expectTranslate('import {Foo as Bar} from "baz";').to.equal(''); });
   it('empty import spec generates safe Dart code',
      () => { expectTranslate('import {} from "baz";').to.equal(''); });
 });
@@ -45,12 +34,19 @@ class X {
 }`);
   });
   it('allows export declarations',
-     () => { expectTranslate('export * from "X";').to.equal('export "package:X.dart";'); });
+     () => { expectTranslate('export * from "X";').to.equal('export "X.dart";'); });
   it('allows export declarations',
      () => { expectTranslate('export * from "./X";').to.equal('export "X.dart";'); });
-  it('allows named export declarations', () => {
-    expectTranslate('export {a, b} from "X";').to.equal('export "package:X.dart" show a, b;');
+  it('allows named export declarations',
+     () => { expectTranslate('export {a, b} from "X";').to.equal('export "X.dart" show a, b;'); });
+  it('ignores named export declarations', () => {
+    expectTranslate(`declare module '../some_other_module' {
+    interface Foo { }
+   }`)
+        .to.equal(
+            '// Library augmentation not allowed by Dart. Ignoring augmentation of ../some_other_module');
   });
+
   it('fails for renamed exports', () => {
     expectErroneousCode('export {Foo as Bar} from "baz";')
         .to.throw(/import\/export renames are unsupported in Dart/);
@@ -62,18 +58,18 @@ class X {
      () => { expectErroneousCode('export {} from "baz";').to.throw(/empty export list/); });
 });
 
-describe('library name', () => {
+describe('module name', () => {
   let transpiler: main.Transpiler;
   let modTranspiler: ModuleTranspiler;
   beforeEach(() => {
-    transpiler = new main.Transpiler({failFast: true, generateLibraryName: true, basePath: '/a'});
-    modTranspiler = new ModuleTranspiler(
-        transpiler, new FacadeConverter(transpiler, '', new NameRewriter(), false), true);
+    transpiler = new main.Transpiler({failFast: true, moduleName: 'sample_module', basePath: '/a'});
+    modTranspiler =
+        new ModuleTranspiler(transpiler, new FacadeConverter(transpiler, ''), 'sample_module');
   });
-  it('adds a library name', () => {
+  it('adds module name', () => {
     let results = translateSources(
-        {'/a/b/c.ts': 'var x;'}, {failFast: true, generateLibraryName: true, basePath: '/a'});
-    chai.expect(results['/a/b/c.ts']).to.equal(`@JS()
+        {'/a/b/c.ts': 'var x;'}, {failFast: true, moduleName: 'sample_module', basePath: '/a'});
+    chai.expect(results['/a/b/c.ts']).to.equal(`@JS("sample_module")
 library b.c;
 
 import "package:js/js.dart";

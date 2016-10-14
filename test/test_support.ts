@@ -83,13 +83,11 @@ export function translateSources(contents: Input, options: main.TranspilerOption
 }
 
 export function translateSource(contents: Input, options: main.TranspilerOptions = {}): string {
-  options.useHtml = true;
-
   let results = translateSources(contents, options);
   // Return the main outcome, from 'main.ts'.
   let result = results[FAKE_MAIN];
   // strip out the package:js import as it clutters the output.
   result = result.replace(/import "package:js\/js.dart";\s+/g, '');
-  result = result.replace(/^@JS\(\)\s+library [^;]+;\s+/g, '');
+  result = result.replace(/^@JS\("?[^)]*"?\)\s+library [^;]+;\s+/g, '');
   return result.trim();
 }

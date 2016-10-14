@@ -9,7 +9,7 @@ export default class TypeTranspiler extends base.TranspilerBase {
 
   visitNode(node: ts.Node): boolean {
     if (base.isTypeNode(node)) {
-      this.emit(this.fc.generateDartTypeName(<ts.TypeNode>node, this.insideCodeComment));
+      this.emit(this.fc.generateDartTypeName(<ts.TypeNode>node));
       return true;
     }
     switch (node.kind) {
@@ -33,11 +33,17 @@ export default class TypeTranspiler extends base.TranspilerBase {
           this.visit(typeParam.constraint);
         }
         break;
+      case ts.SyntaxKind.PropertyAccessExpression:
+        let expr = <ts.PropertyAccessExpression>node;
+        this.visit(expr.expression);
+        this.emit('.');
+        this.fc.visitTypeName(expr.name);
+        break;
       case ts.SyntaxKind.QualifiedName:
         // TODO(jacobr): there is overlap between this case and
         // generateDartTypeName in facade_converter.
         let first = <ts.QualifiedName>node;
-        let match = this.fc.lookupCustomDartTypeName(first, this.insideCodeComment);
+        let match = this.fc.lookupCustomDartTypeName(first);
         if (match) {
           this.emitType(match.name, match.comment);
           break;
@@ -47,25 +53,9 @@ export default class TypeTranspiler extends base.TranspilerBase {
         this.visit(first.right);
         break;
       case ts.SyntaxKind.Identifier:
-        let ident = <ts.Identifier>node;
-        let text = fixupIdentifierName(ident.text);
+      case ts.SyntaxKind.FirstLiteralToken:
+        let text = fixupIdentifierName(base.ident(node));
         this.emit(text);
-        break;
-      // TODO(jacobr): all these cases might be obsolete.
-      case ts.SyntaxKind.NumberKeyword:
-        this.emit('num');
-        break;
-      case ts.SyntaxKind.StringKeyword:
-        this.emit('String');
-        break;
-      case ts.SyntaxKind.VoidKeyword:
-        this.emit('void');
-        break;
-      case ts.SyntaxKind.BooleanKeyword:
-        this.emit('bool');
-        break;
-      case ts.SyntaxKind.AnyKeyword:
-        this.emit('dynamic');
         break;
       default:
         return false;

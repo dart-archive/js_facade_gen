@@ -279,21 +279,73 @@ class X<T> {
     it('merge overrides', () => {
       expectTranslate(`
 class X {
-  createElement(tagName: "img"): HTMLImageElement;
-  createElement(tagName: "video"): HTMLVideoElement;
-  createElement(tagName: string): HTMLElement;
-}`).to.equal(`import "dart:html";
+  createElement<T>(tagName: "img"): T;
+  createElement<T>(tagName: "video"): T;
+  createElement<T>(tagName: string): T;
+}`).to.equal(`@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  /*external T createElement<T>('img' tagName);*/
+  /*external T createElement<T>('video' tagName);*/
+  /*external T createElement<T>(String tagName);*/
+  external dynamic/*=T*/ createElement/*<T>*/(
+      String /*'img'|'video'|String*/ tagName);
+}`);
+
+      expectTranslate(`
+class X {
+  createElement<T>(tagName: "img"): T;
+  createElement<T>(tagName: "video"): T;
+  createElement<V>(tagName: string): V;
+}`).to.equal(`@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  /*external T createElement<T>('img' tagName);*/
+  /*external T createElement<T>('video' tagName);*/
+  /*external V createElement<V>(String tagName);*/
+  external dynamic /*T|V*/ createElement/*<T, V>*/(
+      String /*'img'|'video'|String*/ tagName);
+}`);
+
+      expectTranslate(`
+class X {
+  createElement<T extends HTMLImageElement>(tagName: "img"): T;
+  createElement<T extends HTMLVideoElement>(tagName: "video"): T;
+  createElement<T extends Element>(tagName: string): T;
+}`).to.equal(`import "dart:html" show ImageElement, VideoElement, Element;
 
 @JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
-  /*external ImageElement createElement("img" tagName);*/
-  /*external VideoElement createElement("video" tagName);*/
-  /*external HtmlElement createElement(String tagName);*/
-  external dynamic /*ImageElement|VideoElement|HtmlElement*/ createElement(
-      String tagName);
+  /*external T createElement<T extends ImageElement>('img' tagName);*/
+  /*external T createElement<T extends VideoElement>('video' tagName);*/
+  /*external T createElement<T extends Element>(String tagName);*/
+  external dynamic/*=T*/ createElement/*<T>*/(
+      String /*'img'|'video'|String*/ tagName);
 }`);
+
+      expectTranslate(`export interface ScaleLinear<O> {
+    (value: number): Output;
+    domain(): Array<O>;
+}
+
+export function scaleLinear(): ScaleLinear<number>;
+export function scaleLinear<O>(): ScaleLinear<O>;`)
+          .to.equal(`@anonymous
+@JS()
+abstract class ScaleLinear<O> {
+  external Output call(num value);
+  external List<O> domain();
+}
+
+/*external ScaleLinear<num> scaleLinear();*/
+/*external ScaleLinear<O> scaleLinear<O>();*/
+@JS()
+external ScaleLinear /*ScaleLinear<num>|ScaleLinear<O>*/ scaleLinear/*<O>*/();`);
+
       expectTranslate(`
 class X {
   F(a:string):num;
@@ -330,7 +382,7 @@ class X {
   firstElement(elements: HTMLImageElement[]): HTMLImageElement;
   firstElement(elements: HTMLVideoElement[]): HTMLVideoElement;
   firstElement(elements: HTMLElement[]): HTMLElement;
-}`).to.equal(`import "dart:html";
+}`).to.equal(`import "dart:html" show ImageElement, VideoElement, HtmlElement;
 
 @JS()
 class X {
@@ -351,15 +403,15 @@ class X {
 interface SampleAudioNode {
   addEventListener(type: "ended", listener: (ev: Event) => any, useCapture?: boolean): void;
   addEventListener(type: string, listener: EventListenerOrEventListenerObject, useCapture?: boolean): void;
-}`).to.equal(`import "dart:html";
+}`).to.equal(`import "dart:html" show Event;
 import "package:func/func.dart";
 
 @anonymous
 @JS()
 abstract class SampleAudioNode {
-  /*external void addEventListener("ended" type, dynamic listener(Event ev), [bool useCapture]);*/
+  /*external void addEventListener('ended' type, dynamic listener(Event ev), [bool useCapture]);*/
   /*external void addEventListener(String type, EventListener|EventListenerObject listener, [bool useCapture]);*/
-  external void addEventListener(String type,
+  external void addEventListener(String /*'ended'|String*/ type,
       dynamic /*Func1<Event, dynamic>|EventListener|EventListenerObject*/ listener,
       [bool useCapture]);
 }`);
@@ -374,7 +426,7 @@ interface ExampleListener {
 }
 
 interface DummySample {
-  addEventListener(type: "ended", listener: ListenObject): void;
+  addEventListener(type: 'ended', listener: ListenObject): void;
   addEventListener(type: string, listener: ExampleListener): void;
 }`).to.equal(`@anonymous
 @JS()
@@ -387,10 +439,10 @@ typedef void ExampleListener(String evt);
 @anonymous
 @JS()
 abstract class DummySample {
-  /*external void addEventListener("ended" type, ListenObject listener);*/
+  /*external void addEventListener('ended' type, ListenObject listener);*/
   /*external void addEventListener(String type, ExampleListener listener);*/
-  external void addEventListener(
-      String type, dynamic /*ListenObject|ExampleListener*/ listener);
+  external void addEventListener(String /*'ended'|String*/ type,
+      dynamic /*ListenObject|ExampleListener*/ listener);
 }`);
 
       expectTranslate(`
@@ -403,7 +455,7 @@ interface ExampleListener {
 }
 
 interface DummySample {
-  addEventListener(type: "ended", listener: ListenAny): void;
+  addEventListener(type: 'ended', listener: ListenAny): void;
   addEventListener(type: string, listener: ExampleListener): void;
 }`).to.equal(`typedef void ListenAny(dynamic evt);
 typedef void ExampleListener(String evt);
@@ -411,10 +463,10 @@ typedef void ExampleListener(String evt);
 @anonymous
 @JS()
 abstract class DummySample {
-  /*external void addEventListener("ended" type, ListenAny listener);*/
+  /*external void addEventListener('ended' type, ListenAny listener);*/
   /*external void addEventListener(String type, ExampleListener listener);*/
-  external void addEventListener(
-      String type, Function /*ListenAny|ExampleListener*/ listener);
+  external void addEventListener(String /*'ended'|String*/ type,
+      Function /*ListenAny|ExampleListener*/ listener);
 }`);
 
     });
@@ -440,9 +492,9 @@ interface C {
 }
 declare var C: {new(): C; CHECKING: number; }`)
           .to.equal(`import "package:func/func.dart";
-import "dart:html";
+import "dart:html" show Event;
 
-@JS()
+@JS("C")
 abstract class C {
   external Func1<Event, dynamic> get oncached;
   external set oncached(Func1<Event, dynamic> v);
@@ -512,7 +564,7 @@ abstract class Y<A, B> implements X<A> {
     it('callable', () => {
       expectTranslate('interface X<T> { (a:T):T; Y():T; }').to.equal(`@anonymous
 @JS()
-abstract class X<T> implements Function {
+abstract class X<T> {
   external T call(T a);
   external T Y();
 }`);
@@ -641,6 +693,7 @@ declare module m2 {
 abstract class A {
   external x();
 }
+
 // End module m1
 
 // Module m2
@@ -649,6 +702,7 @@ abstract class A {
 abstract class m2_A {
   external y();
 }
+
 // End module m2`);
     expectTranslate(`
 declare module m1 {
@@ -663,6 +717,7 @@ class A {
   A.fakeConstructor$();
   external factory A(x);
 }
+
 // End module m1
 
 // Module m2
@@ -672,6 +727,7 @@ class m2_A {
   m2_A.fakeConstructor$();
   external factory m2_A(y);
 }
+
 // End module m2`);
     expectTranslate(`
 declare module m1 {
@@ -687,6 +743,7 @@ class A {
   A.fakeConstructor$();
   external factory A(m2_A x);
 }
+
 // End module m1
 
 // Module m2
@@ -696,6 +753,7 @@ class m2_A {
   m2_A.fakeConstructor$();
   external factory m2_A(A y);
 }
+
 // End module m2`);
 
   });
@@ -712,6 +770,7 @@ declare module m2 {
 abstract class A {
   external x();
 }
+
 // End module m1
 
 // Module m2
@@ -735,6 +794,7 @@ export function register(x:m2.A);
 abstract class A {
   external x();
 }
+
 // End module m1
 
 // Module m2
@@ -772,6 +832,7 @@ export function register(y:m2.foo.A, z:m3.foo.A);
 abstract class A {
   external x();
 }
+
 // End module foo
 
 // End module m1
@@ -784,6 +845,7 @@ abstract class A {
 abstract class foo_A {
   external y();
 }
+
 // End module foo
 
 // End module m2
@@ -796,6 +858,7 @@ abstract class foo_A {
 abstract class m3_foo_A {
   external z();
 }
+
 // End module foo
 
 // End module m3
@@ -816,6 +879,7 @@ export function register(x:m1.A);
 abstract class A {
   external x();
 }
+
 // End module m1
 
 // Module m2
@@ -835,28 +899,52 @@ external register(A x);`);
       expectTranslate(`
 type MyNumber = number;
 export function add(x: MyNumber, y: MyNumber): MyNumber;
-        `).to.equal(`@JS()
+        `).to.equal(`/*type MyNumber = number;*/
+@JS()
 external num add(num x, num y);`);
     });
   });
 
   it('union types', () => {
+    // TODO(jacobr): we should resolve that listener1 and listener2 are both functions.
+
     // TODO(jacobr): ideally the draw method should specify that arg el has type
     // HtmlElement instead of dynamic.
     expectTranslate(`
 type listener1 = ()=>boolean;
 type listener2 = (e:string)=>boolean;
 function addEventListener(listener: listener1|listener2);`)
-        .to.equal(`import "package:func/func.dart";
-
+        .to.equal(`typedef bool listener1();
+typedef bool listener2(String e);
 @JS()
-external addEventListener(
-    Function /*Func0<bool>|Func1<String, bool>*/ listener);`);
+external addEventListener(dynamic /*listener1|listener2*/ listener);`);
 
     expectTranslate('function draw(el: HTMLCanvasElement|HTMLImageElement):void;')
-        .to.equal(`import "dart:html";
+        .to.equal(`import "dart:html" show CanvasElement, ImageElement;
 
 @JS()
 external void draw(dynamic /*CanvasElement|ImageElement*/ el);`);
+  });
+
+  it('callback this type', () => {
+    expectTranslate(`
+function addEventListener(type: string, listener: (this: Element, event: Event) => void);`)
+        .to.equal(`import "dart:html" show Element, Event;
+
+@JS()
+external addEventListener(
+    String type, void listener(/*Element this*/ Event event));`);
+    expectTranslate(`
+function addEventListener(type: 'load', listener: (this: HTMLImageElement, event: Event) => void);
+function addEventListener(type: string, listener: (this: Element, event: Event) => void);
+`).to.equal(`import "dart:html" show ImageElement, Event, Element;
+import "package:func/func.dart";
+
+/*external addEventListener('load' type, void listener(ImageElement JS$this, Event event));*/
+/*external addEventListener(
+    String type, void listener(Element JS$this, Event event));*/
+@JS()
+external addEventListener(
+    String /*'load'|String*/ type, void listener(/*Element this*/ Event event));`);
   });
 });

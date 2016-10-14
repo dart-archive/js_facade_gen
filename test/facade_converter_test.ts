@@ -55,19 +55,21 @@ function expectWithTypes(str: string) {
 describe('type based translation', () => {
   describe('Dart type substitution', () => {
     it('finds registered substitutions', () => {
-      expectWithTypes('const n: Node;').to.equal(`import "dart:html";
+      expectWithTypes('const n: Node;').to.equal(`import "dart:html" show Node;
 
 @JS()
 external Node get n;`);
-      expectWithTypes('const xhr: XMLHttpRequest;').to.equal(`import "dart:html";
+      expectWithTypes('const xhr: XMLHttpRequest;').to.equal(`import "dart:html" show HttpRequest;
 
 @JS()
 external HttpRequest get xhr;`);
-      expectWithTypes('const intArray: Uint8Array;').to.equal(`import "dart:typed_data";
+      expectWithTypes('const intArray: Uint8Array;')
+          .to.equal(`import "dart:typed_data" show Uint8List;
 
 @JS()
 external Uint8List get intArray;`);
-      expectWithTypes('const buff: ArrayBuffer;').to.equal(`import "dart:typed_data";
+      expectWithTypes('const buff: ArrayBuffer;')
+          .to.equal(`import "dart:typed_data" show ByteBuffer;
 
 @JS()
 external ByteBuffer get buff;`);
@@ -109,6 +111,15 @@ external get x;`);
   it('translates array façades', () => {
     expectWithTypes('function f() : string[] {}').to.equal(`@JS()
 external List<String> f();`);
+
+    expectWithTypes(`export interface DSVParsedArray<T> extends Array<T> {
+ columns: Array<string>;
+}`).to.equal(`@anonymous
+@JS()
+abstract class DSVParsedArray<T> implements List<T> {
+  external List<String> get columns;
+  external set columns(List<String> v);
+}`);
   });
 
   describe('error detection', () => {
@@ -116,7 +127,7 @@ external List<String> f();`);
       expectWithTypes(
           'import {X} from "other/file";\n' +
           'let x:X;')
-          .to.equal(`import "package:other/file.dart" show X;
+          .to.equal(`import "file.dart" show X;
 
 @JS()
 external X get x;
