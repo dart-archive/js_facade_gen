@@ -32,7 +32,7 @@
     "which": "^1.0.9"
   },
   "scripts": {
-    "prepublish": "gulp compile",
+    "prepublish": "npm install && gulp compile",
     "test": "gulp test",
     "release": "npm-release"
   },
