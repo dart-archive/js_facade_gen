@@ -1,5 +1,4 @@
 /// <reference path="../typings/mocha/mocha.d.ts"/>
-import * as fs from 'fs';
 
 import {expectTranslate, FAKE_MAIN} from './test_support';
 
@@ -28,8 +27,6 @@ let es6RuntimeDeclarations = `
 function getSources(str: string): {[k: string]: string} {
   let srcs: {[k: string]: string} = {
     'some/path/to/typings/es6-shim/es6-shim': es6RuntimeDeclarations,
-    'some/path/to/typings/es6-promise/es6-promise.d.ts':
-        fs.readFileSync('typings/es6-promise/es6-promise.d.ts', 'utf-8'),
     'other/file.ts': `
         export class X {
           map(x: number): string { return String(x); }

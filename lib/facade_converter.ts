@@ -1,7 +1,7 @@
 import * as ts from 'typescript';
 
 import * as base from './base';
-import {Set, TypeDisplayOptions} from './base';
+import {TypeDisplayOptions} from './base';
 import {DART_LIBRARIES_FOR_BROWSER_TYPES, TS_TO_DART_TYPENAMES} from './dart_libraries_for_browser_types';
 import {Transpiler} from './main';
 import {MergedType} from './merge';
@@ -83,44 +83,44 @@ class DartNameRecord {
 
 export class DartLibrary {
   constructor(private fileName: string) {
-    this.usedNames = {};
+    this.usedNames = new Set();
   }
 
   /**
    * @returns {boolean} whether the name was added.
    */
   addName(name: string): boolean {
-    if (Object.prototype.hasOwnProperty.call(this.usedNames, name)) {
+    if (this.usedNames.has(name)) {
       return false;
     }
-    this.usedNames[name] = true;
+    this.usedNames.add(name);
     return true;
   }
 
-  private usedNames: Set;
+  private usedNames: Set<String>;
 }
 
 // TODO(jacobr): track name conflicts better and add library prefixes to avoid them.
 export class NameRewriter {
-  private dartTypes: ts.Map<DartNameRecord> = {};
+  private dartTypes: Map<String, DartNameRecord> = new Map();
   // TODO(jacobr): we aren't really using this well.
-  private libraries: ts.Map<DartLibrary> = {};
+  private libraries: Map<String, DartLibrary> = new Map();
 
   constructor(private fc: FacadeConverter) {}
 
   private computeName(node: base.NamedDeclaration): DartNameRecord {
     let fullPath = fullJsPath(node);
-    if (Object.prototype.hasOwnProperty.call(this.dartTypes, fullPath)) {
-      return this.dartTypes[fullPath];
+    if (this.dartTypes.has(fullPath)) {
+      return this.dartTypes.get(fullPath);
     }
     let sourceFile = <ts.SourceFile>base.getAncestor(node, ts.SyntaxKind.SourceFile);
     let fileName = sourceFile.fileName;
     let library: DartLibrary;
-    if (Object.prototype.hasOwnProperty.call(this.libraries, fileName)) {
-      library = this.libraries[fileName];
+    if (this.libraries.has(fileName)) {
+      library = this.libraries.get(fileName);
     } else {
       library = new DartLibrary(fileName);
-      this.libraries[fileName] = library;
+      this.libraries.set(fileName, library);
     }
     let parts = fullPath.split('.');
     for (let i = parts.length - 1; i >= 0; i--) {
@@ -132,7 +132,7 @@ export class NameRewriter {
       if (library.addName(candidateName)) {
         // Able to add name to library.
         let ret = new DartNameRecord(node, candidateName, library);
-        this.dartTypes[fullPath] = ret;
+        this.dartTypes.set(fullPath, ret);
         return ret;
       }
     }
@@ -148,7 +148,7 @@ export class NameRewriter {
       if (library.addName(candidateName)) {
         // Able to add name to library.
         let ret = new DartNameRecord(node, candidateName, library);
-        this.dartTypes[fullPath] = ret;
+        this.dartTypes.set(fullPath, ret);
         return ret;
       }
       i++;
@@ -205,11 +205,11 @@ function resolveTypeArguments(
     options: TypeDisplayOptions, parameters: ts.TypeParameterDeclaration[]) {
   let ret = cloneOptions(options);
   let typeArguments = options.typeArguments ? options.typeArguments : [];
-  ret.resolvedTypeArguments = {};
+  ret.resolvedTypeArguments = new Map();
   if (parameters) {
     for (let i = 0; i < parameters.length; ++i) {
       let param = parameters[i];
-      ret.resolvedTypeArguments[base.ident(param.name)] = typeArguments[i];
+      ret.resolvedTypeArguments.set(base.ident(param.name), typeArguments[i]);
     }
   }
   // Type arguments have been resolved forward so we don't need to emit them directly.
@@ -239,23 +239,24 @@ export class FacadeConverter extends base.TranspilerBase {
        'library operator part set static sync typedef yield call')
           .split(/ /);
 
-  private candidateTypes: {[typeName: string]: boolean} = {};
+  private candidateTypes: Map<string, boolean> = new Map();
   private typingsRootRegex: RegExp;
   private genericMethodDeclDepth = 0;
   private nameRewriter: NameRewriter;
 
-  constructor(transpiler: Transpiler, typingsRoot = '') {
+  constructor(transpiler: Transpiler, typingsRoot?: string) {
     super(transpiler);
+    typingsRoot = typingsRoot || '';
     this.nameRewriter = new NameRewriter(this);
     this.extractPropertyNames(TS_TO_DART_TYPENAMES, this.candidateTypes);
     // Remove this line if decide to support generating code that avoids dart:html.
     Object.keys(DART_LIBRARIES_FOR_BROWSER_TYPES)
-        .forEach((propName) => this.candidateTypes[propName] = true);
+        .forEach((propName) => this.candidateTypes.set(propName, true));
 
     this.typingsRootRegex = new RegExp('^' + typingsRoot.replace('.', '\\.'));
   }
 
-  private extractPropertyNames(m: ts.Map<ts.Map<any>>, candidates: {[k: string]: boolean}) {
+  private extractPropertyNames(m: ts.Map<ts.Map<any>>, candidates: Map<string, boolean>) {
     for (let fileName of Object.keys(m)) {
       const file = m[fileName];
       if (file === undefined) {
@@ -263,7 +264,7 @@ export class FacadeConverter extends base.TranspilerBase {
       }
       Object.keys(file)
           .map((propName) => propName.substring(propName.lastIndexOf('.') + 1))
-          .forEach((propName) => candidates[propName] = true);
+          .forEach((propName) => candidates.set(propName, true));
     }
   }
 
@@ -323,7 +324,8 @@ export class FacadeConverter extends base.TranspilerBase {
     return symbol.declarations.some(d => d.parent.kind === ts.SyntaxKind.FunctionDeclaration);
   }
 
-  generateTypeList(types: ts.TypeNode[], options: TypeDisplayOptions, seperator = ','): string {
+  generateTypeList(types: ts.TypeNode[], options: TypeDisplayOptions, seperator?: string): string {
+    seperator = seperator || ',';
     let that = this;
     return types
         .map((type) => {
@@ -624,11 +626,10 @@ export class FacadeConverter extends base.TranspilerBase {
     let declaration = this.getSymbolDeclaration(symbol, identifier);
     if (symbol && symbol.flags & ts.SymbolFlags.TypeParameter) {
       let kind = declaration.parent.kind;
-      if (options.resolvedTypeArguments &&
-          Object.hasOwnProperty.call(options.resolvedTypeArguments, ident)) {
+      if (options.resolvedTypeArguments && options.resolvedTypeArguments.has(ident)) {
         return {
           name: this.generateDartTypeName(
-              options.resolvedTypeArguments[ident], removeResolvedTypeArguments(options))
+              options.resolvedTypeArguments.get(ident), removeResolvedTypeArguments(options))
         };
       }
       // Only kinds of TypeParameters supported by Dart.
@@ -638,7 +639,7 @@ export class FacadeConverter extends base.TranspilerBase {
       }
     }
 
-    if (this.candidateTypes.hasOwnProperty(ident)) {
+    if (this.candidateTypes.has(ident)) {
       if (!symbol) {
         return null;
       }

@@ -2,7 +2,6 @@ import * as dartStyle from 'dart-style';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as ts from 'typescript';
-
 import * as base from './base';
 import {ImportSummary, TranspilerBase} from './base';
 import DeclarationTranspiler from './declaration';
@@ -74,7 +73,7 @@ export class Transpiler {
   /**
    * Map of import library path to a Set of identifier names being imported.
    */
-  imports: ts.Map<ImportSummary>;
+  imports: Map<String, ImportSummary>;
   // Comments attach to all following AST nodes before the next 'physical' token. Track the earliest
   // offset to avoid printing comments multiple times.
   private lastCommentIdx: number = -1;
@@ -86,7 +85,8 @@ export class Transpiler {
   /* Number of nested levels of type arguments the current expression is within. */
   private typeArgumentDepth = 0;
 
-  constructor(private options: TranspilerOptions = {}) {
+  constructor(private options: TranspilerOptions) {
+    this.options = this.options || {};
     this.fc = new FacadeConverter(this, options.typingsRoot);
     this.declarationTranspiler = new DeclarationTranspiler(
         this, this.fc, options.enforceUnderscoreConventions, options.promoteFunctionLikeMembers);
@@ -237,7 +237,7 @@ export class Transpiler {
     this.currentFile = sourceFile;
     this.outputs = [];
     this.outputStack = [];
-    this.imports = {};
+    this.imports = new Map();
     for (let i = 0; i < NUM_OUTPUT_CONTEXTS; ++i) {
       this.outputs.push(new Output());
     }
@@ -254,12 +254,11 @@ export class Transpiler {
     }
     this.pushContext(OutputContext.Import);
 
-    for (let name of Object.getOwnPropertyNames(this.imports)) {
-      let summary = this.imports[name];
+    this.imports.forEach((summary, name) => {
       this.emit(`import ${JSON.stringify(name)}`);
 
       if (!summary.showAll) {
-        let shownNames = Object.getOwnPropertyNames(summary.shown);
+        let shownNames = Array.from(summary.shown);
         if (shownNames.length > 0) {
           this.emit(`show ${shownNames.join(', ')}`);
         }
@@ -268,7 +267,7 @@ export class Transpiler {
         this.emit(`as ${summary.asPrefix}`);
       }
       this.emit(';\n');
-    }
+    });
     this.popContext();
 
     let result = '';

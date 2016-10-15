@@ -6,7 +6,8 @@
     "noEmitOnError": true,
     "noImplicitAny": true,
     "allowUnreachableCode": false,
-    "target": "es5"
+    "target": "ES2015",
+    "lib": "es6"
   },
   "exclude": [
     "node_modules",
