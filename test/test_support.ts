@@ -11,12 +11,14 @@ export type StringMap = {
 };
 export type Input = string | StringMap;
 
-export function expectTranslate(tsCode: Input, options: main.TranspilerOptions = {}) {
+export function expectTranslate(tsCode: Input, options?: main.TranspilerOptions) {
+  options = options || {};
   let result = translateSource(tsCode, options);
   return chai.expect(result);
 }
 
-export function expectErroneousCode(tsCode: Input, options: main.TranspilerOptions = {}) {
+export function expectErroneousCode(tsCode: Input, options?: main.TranspilerOptions) {
+  options = options || {};
   options.failFast = false;  // Collect *all* errors.
   return chai.expect(() => translateSource(tsCode, options));
 }
@@ -72,7 +74,8 @@ export function parseFiles(nameToContent: StringMap): ts.Program {
 
 export const FAKE_MAIN = 'demo/some/main.ts';
 
-export function translateSources(contents: Input, options: main.TranspilerOptions = {}): StringMap {
+export function translateSources(contents: Input, options?: main.TranspilerOptions): StringMap {
+  options = options || {};
   // Default to quick stack traces.
   if (!options.hasOwnProperty('failFast')) options.failFast = true;
   let namesToContent: StringMap;
@@ -88,7 +91,8 @@ export function translateSources(contents: Input, options: main.TranspilerOption
   return transpiler.translateProgram(program);
 }
 
-export function translateSource(contents: Input, options: main.TranspilerOptions = {}): string {
+export function translateSource(contents: Input, options?: main.TranspilerOptions): string {
+  options = options || {};
   let results = translateSources(contents, options);
   // Return the main outcome, from 'main.ts'.
   let result = results[FAKE_MAIN];

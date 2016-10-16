@@ -51,25 +51,22 @@ export class MergedType {
         default:
           break;
       }
-      this.types[this.fc.generateDartTypeName(t, {insideComment: true})] = t;
+      this.types.set(this.fc.generateDartTypeName(t, {insideComment: true}), t);
     }
   }
 
   toTypeNode(): ts.TypeNode {
-    let names = Object.getOwnPropertyNames(this.types);
+    let names = Array.from(this.types.keys());
     if (names.length === 0) {
       return null;
     }
     if (names.length === 1) {
-      return this.types[names[0]];
+      return this.types.get(names[0]);
     }
     let union = <ts.UnionTypeNode>ts.createNode(ts.SyntaxKind.UnionType);
-    base.copyLocation(this.types[names[0]], union);
+    base.copyLocation(this.types.get(names[0]), union);
 
-    union.types = <ts.NodeArray<ts.TypeNode>>[];
-    for (let i = 0; i < names.length; ++i) {
-      union.types.push(this.types[names[i]]);
-    }
+    union.types = Array.from(this.types.values()) as ts.NodeArray<ts.TypeNode>;
     return union;
   }
 
@@ -97,7 +94,7 @@ export class MergedType {
     return merged;
   }
 
-  private types: {[name: string]: ts.TypeNode} = {};
+  private types: Map<string, ts.TypeNode> = new Map();
 }
 
 /**
@@ -112,7 +109,7 @@ export class MergedParameter {
   }
 
   merge(param: ts.ParameterDeclaration) {
-    this.name[base.ident(param.name)] = true;
+    this.name.add(base.ident(param.name));
     if (!this.optional) {
       this.optional = !!param.questionToken;
     }
@@ -122,7 +119,7 @@ export class MergedParameter {
   toParameterDeclaration(): ts.ParameterDeclaration {
     let ret = <ts.ParameterDeclaration>ts.createNode(ts.SyntaxKind.Parameter);
     let nameIdentifier = <ts.Identifier>ts.createNode(ts.SyntaxKind.Identifier);
-    nameIdentifier.text = Object.getOwnPropertyNames(this.name).join('_');
+    nameIdentifier.text = Array.from(this.name).join('_');
     ret.name = nameIdentifier;
     if (this.optional) {
       ret.questionToken = ts.createNode(ts.SyntaxKind.QuestionToken);
@@ -136,7 +133,7 @@ export class MergedParameter {
     this.optional = true;
   }
 
-  private name: {[s: string]: boolean} = {};
+  private name: Set<string> = new Set();
   private type: MergedType;
   private optional: boolean = false;
   private textRange: ts.TextRange;
@@ -185,7 +182,7 @@ export class MergedTypeParameter {
  * multiple method overloads.
  */
 export class MergedTypeParameters {
-  private mergedParameters: {[s: string]: MergedTypeParameter} = {};
+  private mergedParameters: Map<string, MergedTypeParameter> = new Map();
   private textRange: ts.TextRange;
 
   constructor(private fc: FacadeConverter) {}
@@ -198,28 +195,28 @@ export class MergedTypeParameters {
     for (let i = 0; i < params.length; i++) {
       let param = params[i];
       let name = base.ident(param.name);
-      if (Object.hasOwnProperty.call(this.mergedParameters, name)) {
-        let merged = this.mergedParameters[name];
+      if (this.mergedParameters.has(name)) {
+        let merged = this.mergedParameters.get(name);
         if (merged) {
           merged.merge(param);
         }
       } else {
-        this.mergedParameters[name] = new MergedTypeParameter(param, this.fc);
+        this.mergedParameters.set(name, new MergedTypeParameter(param, this.fc));
       }
     }
   }
 
   toTypeParameters(): ts.NodeArray<ts.TypeParameterDeclaration> {
-    let names = Object.getOwnPropertyNames(this.mergedParameters);
-    if (names.length === 0) {
+    if (this.mergedParameters.size === 0) {
       return undefined;
     }
 
     let ret = [] as ts.NodeArray<ts.TypeParameterDeclaration>;
     base.copyLocation(this.textRange, ret);
-    for (let i = 0; i < names.length; ++i) {
-      ret.push(this.mergedParameters[names[i]].toTypeParameterDeclaration());
-    }
+    this.mergedParameters.forEach((mergedParameter) => {
+      ret.push(mergedParameter.toTypeParameterDeclaration());
+    });
+
     return ret;
   }
 }
@@ -228,7 +225,7 @@ export class MergedTypeParameters {
  * Normalize a SourceFile
  */
 export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
-  let modules: {[name: string]: ts.ModuleDeclaration} = {};
+  let modules: Map<string, ts.ModuleDeclaration> = new Map();
 
   // Merge top level modules.
   for (let i = 0; i < f.statements.length; ++i) {
@@ -236,8 +233,8 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
     if (statement.kind !== ts.SyntaxKind.ModuleDeclaration) continue;
     let moduleDecl = <ts.ModuleDeclaration>statement;
     let name = moduleDecl.name.text;
-    if (Object.hasOwnProperty.call(modules, name)) {
-      let srcBody = modules[name].body;
+    if (modules.has(name)) {
+      let srcBody = modules.get(name).body;
       let srcBodyBlock: ts.ModuleBlock;
 
       if (srcBody.kind !== ts.SyntaxKind.ModuleBlock) {
@@ -257,7 +254,7 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
       f.statements.splice(i, 1);
       i--;
     } else {
-      modules[name] = moduleDecl;
+      modules.set(name, moduleDecl);
     }
   }
 
@@ -270,7 +267,7 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
     n.modifiers.push(modifier);
   }
 
-  function mergeVariablesIntoClasses(n: ts.Node, classes: {[name: string]: base.ClassLike}) {
+  function mergeVariablesIntoClasses(n: ts.Node, classes: Map<string, base.ClassLike>) {
     switch (n.kind) {
       case ts.SyntaxKind.VariableStatement:
         let statement = <ts.VariableStatement>n;
@@ -278,7 +275,7 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
             declaration: ts.VariableDeclaration) {
           if (declaration.name.kind === ts.SyntaxKind.Identifier) {
             let name: string = (<ts.Identifier>(declaration.name)).text;
-            let existingClass = Object.hasOwnProperty.call(classes, name);
+            let existingClass = classes.has(name);
             let hasConstructor = false;
             if (declaration.type) {
               let type: ts.TypeNode = declaration.type;
@@ -334,10 +331,10 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
                 clazz.members = <ts.NodeArray<ts.ClassElement>>[];
                 base.copyLocation(declaration, clazz.members);
                 replaceNode(n, clazz);
-                classes[name] = clazz;
+                classes.set(name, clazz);
               }
 
-              let existing = classes[name];
+              let existing = classes.get(name);
               if (existing.kind === ts.SyntaxKind.InterfaceDeclaration) {
                 let interfaceDecl = existing as base.ExtendedInterfaceDeclaration;
                 // It is completely safe to assume that we know the precise class like variable
@@ -457,7 +454,7 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
     }
   }
 
-  function gatherClasses(n: ts.Node, classes: {[name: string]: base.ClassLike}) {
+  function gatherClasses(n: ts.Node, classes: Map<string, base.ClassLike>) {
     switch (n.kind) {
       case ts.SyntaxKind.ClassDeclaration:
       case ts.SyntaxKind.InterfaceDeclaration:
@@ -465,21 +462,21 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
         let name = classDecl.name.text;
         // TODO(jacobr): validate that the classes have consistent
         // modifiers, etc.
-        if (Object.hasOwnProperty.call(classes, name)) {
-          let existing = classes[name];
+        if (classes.has(name)) {
+          let existing = classes.get(name);
           (classDecl.members as Array<ts.ClassElement>).forEach((e: ts.ClassElement) => {
             (existing.members as Array<ts.ClassElement>).push(e);
             e.parent = existing;
           });
           removeNode(classDecl);
         } else {
-          classes[name] = classDecl;
+          classes.set(name, classDecl);
           // Perform other class level post processing here.
         }
         break;
       case ts.SyntaxKind.ModuleDeclaration:
       case ts.SyntaxKind.SourceFile:
-        let moduleClasses: {[name: string]: base.ClassLike} = {};
+        let moduleClasses: Map<string, base.ClassLike> = new Map();
         ts.forEachChild(n, (child) => gatherClasses(child, moduleClasses));
         ts.forEachChild(n, (child) => mergeVariablesIntoClasses(child, moduleClasses));
 
@@ -491,5 +488,5 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
         break;
     }
   }
-  gatherClasses(f, {});
+  gatherClasses(f, new Map());
 }

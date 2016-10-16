@@ -29,7 +29,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.fc = fc;
   }
 
-  getJsPath(node: ts.Node, suppressUnneededPaths = true): string {
+  getJsPath(node: ts.Node, suppressUnneededPaths: boolean): string {
     let path: Array<String> = [];
     let moduleDecl =
         base.getAncestor(node, ts.SyntaxKind.ModuleDeclaration) as ts.ModuleDeclaration;
@@ -108,7 +108,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       this.emit('@JS()');
       return;
     }
-    let name: String = this.getJsPath(node);
+    let name: String = this.getJsPath(node, true);
     this.emit('@JS(');
     if (name.length > 0) {
       this.emit('"' + name + '"');
@@ -249,7 +249,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
   visitMergingOverloads(members: Array<ts.Node>) {
     // TODO(jacobr): merge method overloads.
-    let groups: {[name: string]: Array<ts.Node>} = {};
+    let groups: Map<string, Array<ts.Node>> = new Map();
     let orderedGroups: Array<Array<ts.Node>> = [];
     members.forEach((node) => {
       let name = '';
@@ -309,11 +309,11 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
           return;
       }
       let group: Array<ts.Node>;
-      if (Object.prototype.hasOwnProperty.call(groups, name)) {
-        group = groups[name];
+      if (groups.has(name)) {
+        group = groups.get(name);
       } else {
         group = [];
-        groups[name] = group;
+        groups.set(name, group);
         orderedGroups.push(group);
       }
       group.push(node);
@@ -777,7 +777,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
    * In the special case of property parameters in a constructor, we also allow a parameter to be
    * emitted as a property.
    */
-  private visitProperty(decl: ts.PropertyDeclaration|ts.ParameterDeclaration, isParameter = false) {
+  private visitProperty(
+      decl: ts.PropertyDeclaration|ts.ParameterDeclaration, isParameter?: boolean) {
     let isStatic = base.isStatic(decl);
     this.emit('external');
     if (isStatic) this.emit('static');

@@ -10,9 +10,7 @@ import {OutputContext, Transpiler} from './main';
  * where MyArray is the alias type:
  * type MyArray<E> = Array<T>
  */
-export type ResolvedTypeMap = {
-  [name: string]: ts.TypeNode
-};
+export type ResolvedTypeMap = Map<string, ts.TypeNode>;
 
 /***
  * Options for how TypeScript types are represented as Dart types.
@@ -67,17 +65,13 @@ export interface TypeDisplayOptions {
  */
 export class ImportSummary {
   showAll: boolean = false;
-  shown: Set = {};
+  shown: Set<String> = new Set();
   asPrefix: string;
 }
 
 export type ClassLike = ts.ClassDeclaration | ts.InterfaceDeclaration;
 export type NamedDeclaration = ClassLike | ts.PropertyDeclaration | ts.VariableDeclaration |
     ts.MethodDeclaration | ts.ModuleDeclaration | ts.FunctionDeclaration;
-
-export type Set = {
-  [s: string]: boolean
-};
 
 /**
  * Interface extending the true InterfaceDeclaration interface to add optional state we store on
@@ -373,12 +367,12 @@ export class TranspilerBase {
   }
 
   getImportSummary(libraryUri: string): ImportSummary {
-    if (!Object.hasOwnProperty.call(this.transpiler.imports, libraryUri)) {
+    if (!this.transpiler.imports.has(libraryUri)) {
       let summary = new ImportSummary();
-      this.transpiler.imports[libraryUri] = summary;
+      this.transpiler.imports.set(libraryUri, summary);
       return summary;
     }
-    return this.transpiler.imports[libraryUri];
+    return this.transpiler.imports.get(libraryUri);
   }
 
   /**
@@ -387,7 +381,7 @@ export class TranspilerBase {
   addImport(libraryUri: string, identifier?: string): ImportSummary {
     let summary = this.getImportSummary(libraryUri);
     if (identifier) {
-      summary.shown[identifier] = true;
+      summary.shown.add(identifier);
     } else {
       summary.showAll = true;
     }
@@ -434,7 +428,8 @@ export class TranspilerBase {
     if (nodes) this.visitEach(nodes);
   }
 
-  visitList(nodes: ts.Node[], separator = ',') {
+  visitList(nodes: ts.Node[], separator?: string) {
+    separator = separator || ',';
     for (let i = 0; i < nodes.length; i++) {
       this.visit(nodes[i]);
       if (i < nodes.length - 1) this.emitNoSpace(separator);
