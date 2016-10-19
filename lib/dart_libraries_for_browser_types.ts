@@ -973,6 +973,8 @@ const STDLIB_TYPE_REPLACEMENTS = <ts.Map<string>>{
   'Uint8ClampedArray': 'Uint8ClampedList',
   'Uint16Array': 'Uint16List',
   'Uint32Array': 'Uint32List',
+  'Boolean': 'bool',
+  'Number': 'num',
 };
 
 export const TS_TO_DART_TYPENAMES: ts.Map<ts.Map<string>> = {

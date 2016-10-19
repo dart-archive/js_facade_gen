@@ -70,6 +70,18 @@ external Uint8List get intArray;`);
 
 @JS()
 external ByteBuffer get buff;`);
+
+      expectWithTypes('const n: Number;').to.equal(`@JS()
+external num get n;`);
+
+      expectWithTypes('const s: String;').to.equal(`@JS()
+external String get s;`);
+
+      expectWithTypes('const s: string;').to.equal(`@JS()
+external String get s;`);
+
+      expectWithTypes('const b: Boolean;').to.equal(`@JS()
+external bool get b;`);
     });
 
     it('allows undeclared types', () => {
