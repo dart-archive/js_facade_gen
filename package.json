@@ -1,6 +1,6 @@
 {
   "name": "dart_js_facade_gen",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Generate Dart package:js JS Interop faces for arbitrary TypeScript libraries.",
   "dependencies": {
     "dart-style": "^0.2.7",

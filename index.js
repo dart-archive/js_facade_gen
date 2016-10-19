@@ -2,9 +2,9 @@
 
 const main = require('./build/lib/main.js');
 
-let args = require('minimist')(process.argv.slice(2), {base: 'string'});
+var args = require('minimist')(process.argv.slice(2), {base: 'string'});
 try {
-  let transpiler = new main.Transpiler(args);
+  var transpiler = new main.Transpiler(args);
   if (args.destination) console.error('Transpiling', args._, 'to', args.destination);
   transpiler.transpile(args._, args.destination);
 } catch (e) {
