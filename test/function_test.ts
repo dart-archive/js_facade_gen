@@ -23,6 +23,14 @@ external x(p1, [num a, num b, p2]);`);
 external x();`);
   });
 
+  it('supports type predicates', () => {
+    expectTranslate('function isArrayBuffer(value?: any): value is ArrayBuffer;')
+        .to.equal(`import "dart:typed_data" show ByteBuffer;
+
+@JS()
+external bool /*value is ByteBuffer*/ isArrayBuffer([dynamic value]);`);
+  });
+
   it('polyfill var args', () => {
     expectTranslate('function x(...a: number[]) { return 42; }').to.equal(`@JS()
 external x([num a1, num a2, num a3, num a4, num a5]);`);

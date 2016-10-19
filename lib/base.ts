@@ -249,7 +249,13 @@ export function isCallable(decl: ClassLike): boolean {
   });
 }
 
-export function copyLocation(src: ts.TextRange, dest: ts.TextRange) {
+export function copyLocation(src: ts.Node, dest: ts.Node) {
+  dest.pos = src.pos;
+  dest.end = src.end;
+  dest.parent = src.parent;
+}
+
+export function copyNodeArrayLocation(src: ts.TextRange, dest: ts.NodeArray<any>) {
   dest.pos = src.pos;
   dest.end = src.end;
 }

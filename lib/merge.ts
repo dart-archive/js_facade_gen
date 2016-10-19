@@ -136,7 +136,7 @@ export class MergedParameter {
   private name: Set<string> = new Set();
   private type: MergedType;
   private optional: boolean = false;
-  private textRange: ts.TextRange;
+  private textRange: ts.Node;
 }
 
 /**
@@ -174,7 +174,7 @@ export class MergedTypeParameter {
 
   private name: string;
   private constraint: MergedType;
-  private textRange: ts.TextRange;
+  private textRange: ts.Node;
 }
 
 /**
@@ -212,7 +212,8 @@ export class MergedTypeParameters {
     }
 
     let ret = [] as ts.NodeArray<ts.TypeParameterDeclaration>;
-    base.copyLocation(this.textRange, ret);
+    base.copyNodeArrayLocation(this.textRange, ret);
+
     this.mergedParameters.forEach((mergedParameter) => {
       ret.push(mergedParameter.toTypeParameterDeclaration());
     });
@@ -329,7 +330,7 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
                 base.copyLocation(declaration, clazz);
                 clazz.name = declaration.name as ts.Identifier;
                 clazz.members = <ts.NodeArray<ts.ClassElement>>[];
-                base.copyLocation(declaration, clazz.members);
+                base.copyNodeArrayLocation(declaration, clazz.members);
                 replaceNode(n, clazz);
                 classes.set(name, clazz);
               }

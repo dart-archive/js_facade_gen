@@ -355,8 +355,12 @@ export class FacadeConverter extends base.TranspilerBase {
         // let query = <ts.TypeQueryNode>node;
         // name += '/* TypeQuery: typeof ' + base.ident(query.exprName) + ' */';
         break;
-      case ts.SyntaxKind.TypePredicate:
-        return this.generateDartTypeName((node as ts.TypePredicateNode).type, options);
+      case ts.SyntaxKind.TypePredicate: {
+        let predicate = node as ts.TypePredicateNode;
+        name = 'bool';
+        comment = base.ident(predicate.parameterName) + ' is ' +
+            this.generateDartTypeName(predicate.type, addInsideComment(options));
+      } break;
       case ts.SyntaxKind.TupleType:
         let tuple = <ts.TupleTypeNode>node;
         name = 'List<';
@@ -778,6 +782,8 @@ export class FacadeConverter extends base.TranspilerBase {
     // TODO(jacobr): property need to prefix the name better.
     referenceType.typeName = this.createEntityName(symbol);
     referenceType.typeName.parent = referenceType;
+    let decl = this.getSymbolDeclaration(symbol);
+    base.copyLocation(decl, referenceType);
     return referenceType;
   }
 
@@ -823,6 +829,7 @@ export class FacadeConverter extends base.TranspilerBase {
       let refB = nodeB as ts.TypeReferenceNode;
       if (base.ident(refA.typeName) === base.ident(refB.typeName)) {
         let merge = <ts.TypeReferenceNode>ts.createNode(ts.SyntaxKind.TypeReference);
+        base.copyLocation(refA, merge);
         merge.typeName = refA.typeName;
         return merge;
       }
