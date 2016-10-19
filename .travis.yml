@@ -1,6 +1,7 @@
 sudo: false
 language: node_js
 node_js:
+  - "5"
   - "6"
 before_install:
   - 'if [ -n "$TSD_GITHUB_TOKEN" ]; then echo {\"token\": \"$TSD_GITHUB_TOKEN\"} > .tsdrc; fi'
