@@ -118,10 +118,10 @@ export default class ModuleTranspiler extends base.TranspilerBase {
   }
 
   private getExternalModuleReferenceExpr(expr: ts.Node): string {
-    if (expr.kind === ts.SyntaxKind.ExternalModuleReference) {
-      expr = (<ts.ExternalModuleReference>expr).expression;
+    if (ts.isExternalModuleReference(expr)) {
+      expr = expr.expression;
     }
-    if (expr.kind !== ts.SyntaxKind.StringLiteral) {
+    if (!ts.isStringLiteral(expr)) {
       this.reportError(expr, 'Unexpected module reference type:' + expr.kind);
     }
     let moduleName = <ts.StringLiteral>expr;

@@ -134,8 +134,8 @@ export class Transpiler {
         f.moduleName = globalModuleName;
 
         f.statements.forEach((e: ts.Node) => {
-          if (e.kind !== ts.SyntaxKind.ExportDeclaration) return;
-          let exportDecl = e as ts.ExportDeclaration;
+          if (!ts.isExportDeclaration(e)) return;
+          let exportDecl = e;
           if (!exportDecl.moduleSpecifier) return;
           let moduleLocation = <ts.StringLiteral>exportDecl.moduleSpecifier;
           let location = moduleLocation.text;

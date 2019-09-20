@@ -6,11 +6,12 @@ import {Transpiler} from './main';
 import {MergedParameter, MergedType, MergedTypeParameters} from './merge';
 
 export function isFunctionLikeProperty(
-    decl: ts.VariableDeclaration|ts.ParameterDeclaration|ts.PropertyDeclaration,
+    decl: ts.VariableDeclaration|ts.ParameterDeclaration|ts.PropertyDeclaration|
+    ts.PropertySignature,
     tc: ts.TypeChecker): boolean {
   if (!decl.type) return false;
   // Only properties with simple identifier names are candidates to treat as functions.
-  if (decl.name.kind !== ts.SyntaxKind.Identifier) return false;
+  if (!ts.isIdentifier(decl.name)) return false;
   let name = base.ident(decl.name);
   if (name.match(/^on[A-Z]/)) return false;
   return base.isFunctionType(decl.type, tc);
@@ -42,7 +43,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
     let classDecl = base.getEnclosingClass(node);
     if (classDecl) {
-      if (classDecl.kind === ts.SyntaxKind.InterfaceDeclaration) {
+      if (ts.isInterfaceDeclaration(classDecl)) {
         let interfaceDecl = classDecl as base.ExtendedInterfaceDeclaration;
         if (interfaceDecl.classLikeVariableDeclaration) {
           // We upgrade these variable interface declarations to behave more
@@ -56,31 +57,22 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       }
     }
 
-    switch (node.kind) {
-      case ts.SyntaxKind.ModuleDeclaration:
-        path.push((<ts.ModuleDeclaration>node).name.text);
-        break;
-      case ts.SyntaxKind.ClassDeclaration:
-      case ts.SyntaxKind.InterfaceDeclaration:
-        // Already handled by call to getEnclosingClass.
-        break;
-      case ts.SyntaxKind.EnumDeclaration:
-        path.push((<ts.EnumDeclaration>node).name.text);
-        break;
-      case ts.SyntaxKind.PropertyDeclaration:
-      case ts.SyntaxKind.VariableDeclaration:
-      case ts.SyntaxKind.MethodDeclaration:
-      case ts.SyntaxKind.MethodSignature:
-      case ts.SyntaxKind.FunctionDeclaration:
-      case ts.SyntaxKind.GetAccessor:
-      case ts.SyntaxKind.SetAccessor:
-      case ts.SyntaxKind.PropertySignature:
-        let memberName = base.ident((<base.NamedDeclaration>node).name);
-        if (!base.isStatic(node) && classDecl != null) return memberName;
-        path.push(memberName);
-        break;
-      default:
-        throw 'Internal error. Unexpected node kind:' + node.kind;
+    if (ts.isModuleDeclaration(node)) {
+      path.push(node.name.text);
+    } else if (ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)) {
+      // Already handled by call to getEnclosingClass.
+    } else if (ts.isEnumDeclaration(node)) {
+      path.push(node.name.text);
+    } else if (
+        ts.isPropertyDeclaration(node) || ts.isVariableDeclaration(node) ||
+        ts.isMethodDeclaration(node) || ts.isMethodSignature(node) ||
+        ts.isFunctionDeclaration(node) || ts.isGetAccessorDeclaration(node) ||
+        ts.isSetAccessorDeclaration(node) || ts.isPropertySignature(node)) {
+      let memberName = base.ident(node.name);
+      if (!base.isStatic(node) && classDecl != null) return memberName;
+      path.push(memberName);
+    } else {
+      throw 'Internal error. Unexpected node kind:' + node.kind;
     }
     if (suppressUnneededPaths && path.length === 1) {
       // No need to specify the path if is simply the node name or the escaped version of the node
@@ -91,7 +83,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   }
 
   private isAnonymousInterface(node: ts.Node): boolean {
-    if (node.kind !== ts.SyntaxKind.InterfaceDeclaration) return false;
+    if (!ts.isInterfaceDeclaration(node)) return false;
     let interfaceDecl = node as base.ExtendedInterfaceDeclaration;
     // If we were able to associate a variable declaration with the interface definition then
     // the interface isn't actually anonymous.
@@ -120,11 +112,11 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
    * Emit fake constructors to placate the Dart Analyzer for JS Interop classes.
    */
   maybeEmitFakeConstructors(decl: ts.Node) {
-    if (decl.kind === ts.SyntaxKind.ClassDeclaration) {
+    if (ts.isClassDeclaration(decl)) {
       // Required to avoid spurious dart errors involving base classes without
       // default constructors.
       this.emit('// @Ignore\n');
-      this.fc.visitTypeName((<ts.ClassDeclaration>decl).name);
+      this.fc.visitTypeName(decl.name);
       this.emit('.fakeConstructor$()');
       if (this.extendsClass) {
         // Required to keep the Dart Analyzer happy when a class has subclasses.
@@ -141,10 +133,10 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     }
     // Have to rewrite names in this case as we could have conflicts
     // due to needing to support multiple JS modules in a single JS module
-    if (name.kind !== ts.SyntaxKind.Identifier) {
+    if (!ts.isIdentifier(name)) {
       throw 'Internal error: unexpected function name kind:' + name.kind;
     }
-    let entry = this.fc.lookupCustomDartTypeName(<ts.Identifier>name);
+    let entry = this.fc.lookupCustomDartTypeName(name);
     if (entry) {
       this.emit(entry.name);
       return;
@@ -207,18 +199,14 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       properties: ts.NodeArray<ts.Declaration>, outProperties: ts.Declaration[]): boolean {
     for (let i = 0; i < properties.length; ++i) {
       let node = properties[i];
-      switch (node.kind) {
-        case ts.SyntaxKind.PropertyDeclaration:
-        case ts.SyntaxKind.PropertySignature:
-        case ts.SyntaxKind.VariableDeclaration:
-          let prop = <ts.PropertyDeclaration>node;
-          if (this.promoteFunctionLikeMembers && isFunctionLikeProperty(prop, this.tc)) {
-            return false;
-          }
-          outProperties.push(prop);
-          break;
-        default:
+      if (ts.isPropertyDeclaration(node) || ts.isPropertySignature(node) ||
+          ts.isVariableDeclaration(node)) {
+        if (this.promoteFunctionLikeMembers && isFunctionLikeProperty(node, this.tc)) {
           return false;
+        }
+        outProperties.push(node);
+      } else {
+        return false;
       }
     }
     return outProperties.length > 0;
@@ -227,9 +215,9 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   visitClassBody(decl: base.ClassLike|ts.TypeLiteralNode, name: ts.Identifier) {
     let properties: ts.PropertyDeclaration[] = [];
     let isPropertyBag = false;
-    if (decl.kind === ts.SyntaxKind.InterfaceDeclaration) {
-      isPropertyBag = this.hasOnlyProperties(<ts.InterfaceDeclaration>decl, properties);
-    } else if (decl.kind === ts.SyntaxKind.TypeLiteral) {
+    if (ts.isInterfaceDeclaration(decl)) {
+      isPropertyBag = this.hasOnlyProperties(decl, properties);
+    } else if (ts.isTypeLiteralNode(decl)) {
       isPropertyBag = this.hasOnlyPropertiesHelper(decl.members, properties);
     }
     this.visitMergingOverloads(decl.members);

@@ -14,53 +14,44 @@ export default class TypeTranspiler extends base.TranspilerBase {
       this.emit(this.fc.generateDartTypeName(<ts.TypeNode>node));
       return true;
     }
-    switch (node.kind) {
-      case ts.SyntaxKind.TypeAssertionExpression:
-        let typeAssertExpr = <ts.TypeAssertion>node;
-        if (this.isReifiedTypeLiteral(typeAssertExpr)) {
-          this.visit(typeAssertExpr.expression);
-          break;  // type is handled by the container literal itself.
-        }
-        this.emit('(');
+    if (ts.isTypeAssertion(node)) {
+      let typeAssertExpr = <ts.TypeAssertion>node;
+      if (this.isReifiedTypeLiteral(typeAssertExpr)) {
         this.visit(typeAssertExpr.expression);
-        this.emit('as');
-        this.visit(typeAssertExpr.type);
-        this.emit(')');
-        break;
-      case ts.SyntaxKind.TypeParameter:
-        let typeParam = <ts.TypeParameterDeclaration>node;
-        this.visit(typeParam.name);
-        if (typeParam.constraint) {
-          this.emit('extends');
-          this.visit(typeParam.constraint);
-        }
-        break;
-      case ts.SyntaxKind.PropertyAccessExpression:
-        let expr = <ts.PropertyAccessExpression>node;
-        this.visit(expr.expression);
-        this.emit('.');
-        this.fc.visitTypeName(expr.name);
-        break;
-      case ts.SyntaxKind.QualifiedName:
-        // TODO(jacobr): there is overlap between this case and
-        // generateDartTypeName in facade_converter.
-        let first = <ts.QualifiedName>node;
-        let match = this.fc.lookupCustomDartTypeName(first);
-        if (match) {
-          this.emitType(match.name, match.comment);
-          break;
-        }
-        this.visit(first.left);
-        this.emit('.');
-        this.visit(first.right);
-        break;
-      case ts.SyntaxKind.Identifier:
-      case ts.SyntaxKind.FirstLiteralToken:
-        let text = fixupIdentifierName(base.ident(node));
-        this.emit(text);
-        break;
-      default:
-        return false;
+        // type is handled by the container literal itself.
+      }
+      this.emit('(');
+      this.visit(typeAssertExpr.expression);
+      this.emit('as');
+      this.visit(typeAssertExpr.type);
+      this.emit(')');
+    } else if (ts.isTypeParameterDeclaration(node)) {
+      let typeParam = node;
+      this.visit(typeParam.name);
+      if (typeParam.constraint) {
+        this.emit('extends');
+        this.visit(typeParam.constraint);
+      }
+    } else if (ts.isPropertyAccessExpression(node)) {
+      this.visit(node.expression);
+      this.emit('.');
+      this.fc.visitTypeName(node.name);
+    } else if (ts.isQualifiedName(node)) {
+      // TODO(jacobr): there is overlap between this case and
+      // generateDartTypeName in facade_converter.
+      let first = node;
+      let match = this.fc.lookupCustomDartTypeName(first);
+      if (match) {
+        this.emitType(match.name, match.comment);
+      }
+      this.visit(first.left);
+      this.emit('.');
+      this.visit(first.right);
+    } else if (ts.isIdentifier(node) || node.kind === ts.SyntaxKind.FirstLiteralToken) {
+      let text = fixupIdentifierName(base.ident(node));
+      this.emit(text);
+    } else {
+      return false;
     }
     return true;
   }

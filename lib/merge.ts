@@ -35,8 +35,8 @@ export class MergedType {
           // function types. TODO(jacobr): handle them for Function types?
           let typeRef = <ts.TypeReferenceNode>t;
           let decl = this.fc.getDeclaration(typeRef.typeName);
-          if (decl !== null && decl.kind === ts.SyntaxKind.TypeAliasDeclaration) {
-            let alias = <ts.TypeAliasDeclaration>decl;
+          if (decl !== null && ts.isTypeAliasDeclaration(decl)) {
+            let alias = decl;
             if (!base.supportedTypeDeclaration(alias)) {
               if (typeRef.typeArguments) {
                 console.log(
@@ -78,9 +78,9 @@ export class MergedType {
     let merged = this.toTypeNode();
     if (merged == null) return null;
 
-    if (merged.kind === ts.SyntaxKind.UnionType) {
+    if (ts.isUnionTypeNode(merged)) {
       // For union types find a Dart type that satisfies all the types.
-      let types = (<ts.UnionTypeNode>merged).types;
+      let types = merged.types;
       // Generate a common base type for an array of types.
       // The implemented is currently incomplete often returning null when there
       // might really be a valid common base type.
@@ -166,7 +166,7 @@ export class MergedTypeParameter {
     // TODO(jacobr): remove this check once we have support for union types within comments.
     // We can't currently handle union types in merged type parameters as the comments for type
     // parameters in function types are not there for documentation and impact strong mode.
-    if (constraint && constraint.kind !== ts.SyntaxKind.UnionType) {
+    if (constraint && !ts.isUnionTypeNode(constraint)) {
       ret.constraint = constraint;
     }
     return ret;
