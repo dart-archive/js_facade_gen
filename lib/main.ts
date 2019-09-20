@@ -293,6 +293,10 @@ export class Transpiler {
       // code is not a generic compiler, so only yields TS errors if they could
       // be the cause of facade generation issues.
       // This greatly speeds up tests and execution.
+
+      // TODO(derekx): This has gotten slower since upgrading from TS 1.7 to TS 3. Removing the
+      // following line makes the tests finish 2 seconds faster. Investigate whether or not there's
+      // a way to speed it up.
       diagnostics = diagnostics.concat(program.getSemanticDiagnostics());
     }
 
