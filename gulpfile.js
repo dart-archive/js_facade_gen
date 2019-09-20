@@ -11,18 +11,20 @@ var ts = require('gulp-typescript');
 var typescript = require('typescript');
 var tslint = require('gulp-tslint');
 
-gulp.task('test.check-format', function() {
+function checkFormat() {
   return gulp.src(['*.js', 'lib/**/*.ts', 'test/**/*.ts'])
       .pipe(formatter.checkFormat('file', clangFormat))
       .on('warning', onError);
-});
+}
+exports['test.check-format'] = checkFormat;
 
-gulp.task('test.check-lint', function() {
+function checkLint() {
   return gulp.src(['lib/**/*.ts', 'test/**/*.ts'])
       .pipe(tslint({formatter: 'verbose'}))
       .pipe(tslint.report())
       .on('warning', onError);
-});
+}
+exports['test.check-lint'] = checkLint;
 
 var hasError;
 var failOnError = true;
@@ -65,7 +67,7 @@ gulp.task('test.compile', gulp.series('compile', function(done) {
       .pipe(gulp.dest('build/'));  // '/test/' comes from base above.
 }));
 
-gulp.task('test.unit', gulp.series('test.compile', function(done) {
+unitTests = gulp.series('test.compile', function(done) {
   if (hasError) {
     done();
     return;
@@ -74,11 +76,12 @@ gulp.task('test.unit', gulp.series('test.compile', function(done) {
     timeout: 4000,  // Needed by the type-based tests :-(
     fullTrace: true,
   }));
-}));
+});
+exports['test.unit'] = unitTests;
 
-gulp.task('test', gulp.series('test.check-format', 'test.check-lint', 'test.unit'));
+gulp.task('test', gulp.series(checkFormat, checkLint, unitTests));
 
-gulp.task('watch', gulp.series('test.unit', function() {
+gulp.task('watch', gulp.series(unitTests, function() {
   failOnError = false;
   // Avoid watching generated .d.ts in the build (aka output) directory.
   return gulp.watch(['lib/**/*.ts', 'test/**/*.ts'], {ignoreInitial: true}, ['test.unit']);
