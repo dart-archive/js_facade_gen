@@ -19,13 +19,12 @@ export default class ModuleTranspiler extends base.TranspilerBase {
           moduleName = sourceFile.moduleName;
         }
         sourceFile.statements.forEach((n: ts.Node) => {
-          if (n.kind === ts.SyntaxKind.GlobalModuleExportDeclaration) {
-            let decl = n as ts.GlobalModuleExportDeclaration;
-            moduleName = base.ident(decl.name);
+          if (ts.isNamespaceExportDeclaration(n)) {
+            moduleName = base.ident(n.name);
           }
         });
         if (moduleName) {
-          this.emit('@JS("' + moduleName + '")');
+          this.emit(`@JS("${moduleName}")`);
         } else {
           this.emit('@JS()');
         }
@@ -77,7 +76,7 @@ export default class ModuleTranspiler extends base.TranspilerBase {
         }
         this.fc.visitTypeName(spec.name);
         break;
-      case ts.SyntaxKind.GlobalModuleExportDeclaration:
+      case ts.SyntaxKind.NamespaceExportDeclaration:
         // We handle this globally exporting all files in the packge with the specified global
         // module export location.
         break;
@@ -135,9 +134,9 @@ export default class ModuleTranspiler extends base.TranspilerBase {
     return text + '.dart';
   }
 
-  private filterImports(ns: ts.ImportOrExportSpecifier[]) {
+  private filterImports(ns: ts.NodeArray<ts.ImportSpecifier>) {
     let that = this;
-    return ns.filter((e) => !that.isIgnoredImport(e));
+    return ts.createNodeArray(ns.filter((e) => !that.isIgnoredImport(e)));
   }
 
   getLibraryName(jsFileName?: string) {

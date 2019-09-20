@@ -1,6 +1,3 @@
-/// <reference path="../typings/chai/chai.d.ts"/>
-/// <reference path="../typings/mocha/mocha.d.ts"/>
-/// <reference path="../typings/source-map/source-map.d.ts"/>
 import chai = require('chai');
 import main = require('../lib/main');
 
@@ -142,7 +139,6 @@ class Foo {
   /// Bla.
   external bar();
 }`);
-
         });
       });
 

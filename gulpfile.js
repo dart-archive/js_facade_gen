@@ -2,18 +2,13 @@ require('source-map-support').install();
 
 var clangFormat = require('clang-format');
 var formatter = require('gulp-clang-format');
-var fs = require('fs');
-var fsx = require('fs-extra');
 var gulp = require('gulp');
 var gutil = require('gulp-util');
 var merge = require('merge2');
 var mocha = require('gulp-mocha');
 var sourcemaps = require('gulp-sourcemaps');
-var spawn = require('child_process').spawn;
 var ts = require('gulp-typescript');
 var typescript = require('typescript');
-var style = require('dart-style');
-var which = require('which');
 var tslint = require('gulp-tslint');
 
 gulp.task('test.check-format', function() {
@@ -24,8 +19,8 @@ gulp.task('test.check-format', function() {
 
 gulp.task('test.check-lint', function() {
   return gulp.src(['lib/**/*.ts', 'test/**/*.ts'])
-      .pipe(tslint())
-      .pipe(tslint.report('verbose'))
+      .pipe(tslint({formatter: 'verbose'}))
+      .pipe(tslint.report())
       .on('warning', onError);
 });
 
@@ -43,13 +38,12 @@ var onError = function(err) {
 var tsProject =
     ts.createProject('tsconfig.json', {noEmit: false, declaration: true, typescript: typescript});
 
-gulp.task('compile', function() {
+gulp.task('compile', () => {
   hasError = false;
-  var tsResult =
-      gulp.src(['lib/**/*.ts', 'typings/**/*.d.ts', 'node_modules/typescript/lib/typescript.d.ts'])
-          .pipe(sourcemaps.init())
-          .pipe(ts(tsProject))
-          .on('error', onError);
+  var tsResult = gulp.src(['lib/**/*.ts', 'node_modules/typescript/lib/typescript.d.ts'])
+                     .pipe(sourcemaps.init())
+                     .pipe(tsProject())
+                     .on('error', onError);
   return merge([
     tsResult.dts.pipe(gulp.dest('build/definitions')),
     // Write external sourcemap next to the js file
@@ -58,23 +52,20 @@ gulp.task('compile', function() {
   ]);
 });
 
-gulp.task('test.compile', ['compile'], function(done) {
+gulp.task('test.compile', gulp.series('compile', function(done) {
   if (hasError) {
     done();
     return;
   }
-  return gulp
-      .src(
-          ['test/*.ts', 'typings/**/*.d.ts', 'node_modules/dart-style/dart-style.d.ts'],
-          {base: '.'})
+  return gulp.src(['test/*.ts', 'node_modules/dart-style/dart-style.d.ts'], {base: '.'})
       .pipe(sourcemaps.init())
-      .pipe(ts(tsProject))
+      .pipe(tsProject())
       .on('error', onError)
       .js.pipe(sourcemaps.write())
       .pipe(gulp.dest('build/'));  // '/test/' comes from base above.
-});
+}));
 
-gulp.task('test.unit', ['test.compile'], function(done) {
+gulp.task('test.unit', gulp.series('test.compile', function(done) {
   if (hasError) {
     done();
     return;
@@ -83,14 +74,14 @@ gulp.task('test.unit', ['test.compile'], function(done) {
     timeout: 4000,  // Needed by the type-based tests :-(
     fullTrace: true,
   }));
-});
+}));
 
-gulp.task('test', ['test.check-format', 'test.check-lint', 'test.unit']);
+gulp.task('test', gulp.series('test.check-format', 'test.check-lint', 'test.unit'));
 
-gulp.task('watch', ['test.unit'], function() {
+gulp.task('watch', gulp.series('test.unit', function() {
   failOnError = false;
   // Avoid watching generated .d.ts in the build (aka output) directory.
   return gulp.watch(['lib/**/*.ts', 'test/**/*.ts'], {ignoreInitial: true}, ['test.unit']);
-});
+}));
 
-gulp.task('default', ['compile']);
+gulp.task('default', gulp.series('compile'));

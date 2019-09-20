@@ -1,4 +1,3 @@
-/// <reference path="../typings/mocha/mocha.d.ts"/>
 import {expectTranslate} from './test_support';
 
 // TODO(jacobr): merge these tests back in with the other tests. These tests are
@@ -468,7 +467,6 @@ abstract class DummySample {
   external void addEventListener(String /*'ended'|String*/ type,
       Function /*ListenAny|ExampleListener*/ listener);
 }`);
-
     });
     it('dot dot dot', () => {
       expectTranslate(`
@@ -755,7 +753,6 @@ class m2_A {
 }
 
 // End module m2`);
-
   });
   it('should support member renames', () => {
     expectTranslate(`

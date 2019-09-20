@@ -1,4 +1,3 @@
-/// <reference path="../typings/mocha/mocha.d.ts"/>
 import {expectTranslate} from './test_support';
 
 describe('functions', () => {
@@ -56,12 +55,13 @@ external f(Function /*(...a: string[]) => number*/ fn);`);
 /* TODO(jacobr): support named parameters.
 describe('named parameters', () => {
   it('supports named parameters', () => {
-    expectTranslate('function x({a = "x", b}) { return a + b; }').to.equal(`x({a: "x", b}) {
-  return a + b;
+    expectTranslate('function x({a = "x", b}) { return a + b;
+}').to.equal(`x({a: "x", b}) { return a + b;
 }`);
   });
   it('supports types on named parameters', () => {
-    expectTranslate('function x({a = 1, b = 2}: {a: number, b: number} = {}) { return a + b;
+    expectTranslate('function x({a = 1, b = 2}: {a: number, b: number} = {}) {
+return a + b;
 }').to.equal(`x({num a: 1, num b: 2}) {
   return a + b;
 }`);
@@ -80,7 +80,8 @@ x({String a, num b, c}) {
 }`);
   });
   it('supports declared, untyped named parameters', () => {
-    expectTranslate('function x({a, b}: {a: number, b}) { return a + b; }').to.equal(`x({num a, b})
+    expectTranslate('function x({a, b}: {a: number, b}) { return a + b;
+}').to.equal(`x({num a, b})
 {
   return a + b;
 }`);

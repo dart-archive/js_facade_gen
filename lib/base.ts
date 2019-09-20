@@ -51,7 +51,7 @@ export interface TypeDisplayOptions {
    * Arguments are emitted directly in normal cases but in the case of type aliases we have to
    * propagate and substitute type arguments.
    */
-  typeArguments?: ts.TypeNode[];
+  typeArguments?: ts.NodeArray<ts.TypeNode>;
 
   /**
    * Parameter declarations to substitute. This is required to support type aliases with type
@@ -64,14 +64,14 @@ export interface TypeDisplayOptions {
  * Summary information on what is imported via a particular import.
  */
 export class ImportSummary {
-  showAll: boolean = false;
+  showAll = false;
   shown: Set<String> = new Set();
   asPrefix: string;
 }
 
-export type ClassLike = ts.ClassDeclaration | ts.InterfaceDeclaration;
-export type NamedDeclaration = ClassLike | ts.PropertyDeclaration | ts.VariableDeclaration |
-    ts.MethodDeclaration | ts.ModuleDeclaration | ts.FunctionDeclaration;
+export type ClassLike = ts.ClassLikeDeclaration|ts.InterfaceDeclaration;
+export type NamedDeclaration = ClassLike|ts.PropertyDeclaration|ts.VariableDeclaration|
+                               ts.MethodDeclaration|ts.ModuleDeclaration|ts.FunctionDeclaration;
 
 /**
  * Interface extending the true InterfaceDeclaration interface to add optional state we store on
@@ -204,7 +204,8 @@ export function isThisParameter(param: ts.ParameterDeclaration): boolean {
 /**
  * Dart does not have a concept of binding the type of the "this" parameter to a method.
  */
-export function filterThisParameter(params: ts.ParameterDeclaration[]): ts.ParameterDeclaration[] {
+export function filterThisParameter(params: ts.NodeArray<ts.ParameterDeclaration>):
+    ts.ParameterDeclaration[] {
   let ret: ts.ParameterDeclaration[] = [];
   for (let i = 0; i < params.length; i++) {
     let param = params[i];
@@ -223,6 +224,7 @@ export function isTypeNode(node: ts.Node): boolean {
     case ts.SyntaxKind.TypeReference:
     case ts.SyntaxKind.TypeLiteral:
     case ts.SyntaxKind.LastTypeNode:
+    case ts.SyntaxKind.LiteralType:
     case ts.SyntaxKind.ArrayType:
     case ts.SyntaxKind.TypePredicate:
     case ts.SyntaxKind.TypeQuery:
@@ -243,7 +245,7 @@ export function isTypeNode(node: ts.Node): boolean {
 }
 
 export function isCallable(decl: ClassLike): boolean {
-  let members = decl.members as Array<ts.ClassElement>;
+  let members = decl.members as ReadonlyArray<ts.ClassElement>;
   return members.some((member) => {
     return member.kind === ts.SyntaxKind.CallSignature;
   });
@@ -261,7 +263,7 @@ export function copyNodeArrayLocation(src: ts.TextRange, dest: ts.NodeArray<any>
 }
 
 // Polyfill for ES6 Array.find.
-export function arrayFindPolyfill<T>(
+export function arrayFindPolyfill<T extends ts.Node>(
     nodeArray: ts.NodeArray<T>, predicate: (node: T) => boolean): T {
   for (let i = 0; i < nodeArray.length; ++i) {
     if (predicate(nodeArray[i])) return nodeArray[i];
@@ -327,7 +329,7 @@ export function formatType(s: string, comment: string, options: TypeDisplayOptio
 }
 
 export class TranspilerBase {
-  private idCounter: number = 0;
+  private idCounter = 0;
   constructor(protected transpiler: Transpiler) {}
 
   visit(n: ts.Node) {
@@ -426,15 +428,15 @@ export class TranspilerBase {
     throw new Error('not implemented');
   }
 
-  visitEach(nodes: ts.Node[]) {
+  visitEach(nodes: ts.NodeArray<ts.Node>) {
     nodes.forEach((n) => this.visit(n));
   }
 
-  visitEachIfPresent(nodes?: ts.Node[]) {
+  visitEachIfPresent(nodes?: ts.NodeArray<ts.Node>) {
     if (nodes) this.visitEach(nodes);
   }
 
-  visitList(nodes: ts.Node[], separator?: string) {
+  visitList(nodes: ts.NodeArray<ts.Node>, separator?: string) {
     separator = separator || ',';
     for (let i = 0; i < nodes.length; i++) {
       this.visit(nodes[i]);
@@ -502,8 +504,12 @@ export class TranspilerBase {
     });
   }
 
-  hasFlag(n: {flags: number}, flag: ts.NodeFlags): boolean {
-    return n && (n.flags & flag) !== 0 || false;
+  hasNodeFlag(n: ts.Declaration, flag: ts.NodeFlags): boolean {
+    return n && (ts.getCombinedNodeFlags(n) & flag) !== 0 || false;
+  }
+
+  hasModifierFlag(n: ts.Declaration, flag: ts.ModifierFlags): boolean {
+    return n && (ts.getCombinedModifierFlags(n) & flag) !== 0 || false;
   }
 
   getRelativeFileName(fileName: string): string {
@@ -524,7 +530,7 @@ export class TranspilerBase {
     }
   }
 
-  visitParameters(parameters: ts.ParameterDeclaration[]) {
+  visitParameters(parameters: ts.NodeArray<ts.ParameterDeclaration>) {
     this.emitNoSpace('(');
     let firstInitParamIdx = 0;
     for (; firstInitParamIdx < parameters.length; firstInitParamIdx++) {

@@ -6,7 +6,8 @@ import {Transpiler} from './main';
 import {MergedParameter, MergedType, MergedTypeParameters} from './merge';
 
 export function isFunctionLikeProperty(
-    decl: ts.PropertyDeclaration|ts.ParameterDeclaration, tc: ts.TypeChecker): boolean {
+    decl: ts.VariableDeclaration|ts.ParameterDeclaration|ts.PropertyDeclaration,
+    tc: ts.TypeChecker): boolean {
   if (!decl.type) return false;
   // Only properties with simple identifier names are candidates to treat as functions.
   if (decl.name.kind !== ts.SyntaxKind.Identifier) return false;
@@ -18,7 +19,7 @@ export function isFunctionLikeProperty(
 export default class DeclarationTranspiler extends base.TranspilerBase {
   private tc: ts.TypeChecker;
 
-  private extendsClass: boolean = false;
+  private extendsClass = false;
 
   static NUM_FAKE_REST_PARAMETERS = 5;
 
@@ -35,9 +36,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         base.getAncestor(node, ts.SyntaxKind.ModuleDeclaration) as ts.ModuleDeclaration;
     while (moduleDecl != null) {
       path.unshift(moduleDecl.name.text);
-      moduleDecl =
-          base.getAncestor(
-                  moduleDecl.parent, ts.SyntaxKind.ModuleDeclaration) as ts.ModuleDeclaration;
+      moduleDecl = base.getAncestor(moduleDecl.parent, ts.SyntaxKind.ModuleDeclaration) as
+          ts.ModuleDeclaration;
     }
 
     let classDecl = base.getEnclosingClass(node);
@@ -111,7 +111,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     let name: String = this.getJsPath(node, true);
     this.emit('@JS(');
     if (name.length > 0) {
-      this.emit('"' + name + '"');
+      this.emit(`"${name}"`);
     }
     this.emit(')');
   }
@@ -200,10 +200,11 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       let property = symbol.valueDeclaration;
       properties.push(property);
     }
-    return this.hasOnlyPropertiesHelper(properties, outProperties);
+    return this.hasOnlyPropertiesHelper(ts.createNodeArray(properties), outProperties);
   }
 
-  hasOnlyPropertiesHelper(properties: ts.Declaration[], outProperties: ts.Declaration[]): boolean {
+  hasOnlyPropertiesHelper(
+      properties: ts.NodeArray<ts.Declaration>, outProperties: ts.Declaration[]): boolean {
     for (let i = 0; i < properties.length; ++i) {
       let node = properties[i];
       switch (node.kind) {
@@ -247,10 +248,10 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     }
   }
 
-  visitMergingOverloads(members: Array<ts.Node>) {
+  visitMergingOverloads(members: ts.NodeArray<ts.Node>) {
     // TODO(jacobr): merge method overloads.
-    let groups: Map<string, Array<ts.Node>> = new Map();
-    let orderedGroups: Array<Array<ts.Node>> = [];
+    let groups: Map<string, ts.Node[]> = new Map();
+    let orderedGroups: Array<ts.Node[]> = [];
     members.forEach((node) => {
       let name = '';
       switch (node.kind) {
@@ -383,8 +384,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
           mergedParams.push(param);
         }
       }
-      merged.parameters = <ts.NodeArray<ts.ParameterDeclaration>>mergedParams.map(
-          (p) => p.toParameterDeclaration());
+      merged.parameters = ts.createNodeArray(mergedParams.map((p) => p.toParameterDeclaration()));
       merged.type = mergedType.toTypeNode();
       merged.typeParameters = mergedTypeParams.toTypeParameters();
 
@@ -421,7 +421,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       case ts.SyntaxKind.EnumDeclaration: {
         let decl = <ts.EnumDeclaration>node;
         // The only legal modifier for an enum decl is const.
-        let isConst = decl.modifiers && (decl.modifiers.flags & ts.NodeFlags.Const);
+        let isConst = this.hasModifierFlag(decl, ts.ModifierFlags.Const);
         if (isConst) {
           this.reportError(node, 'const enums are not supported');
         }
@@ -482,7 +482,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         // TODO(jacobr): should we support
         if (paramDecl.name.kind === ts.SyntaxKind.ObjectBindingPattern) {
           this.emit('Object');
-          let pattern = paramDecl.name as ts.BindingPattern;
+          let pattern = paramDecl.name as ts.ObjectBindingPattern;
           let elements = pattern.elements;
           let name = elements.map((e) => base.ident(e.name)).join('_');
           // Warning: this name is unlikely to but could possible overlap with
@@ -527,7 +527,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         this.visit(varDecl.type);
         this.emit('get');
         this.visitName(varDecl.name);
-        if (!this.hasFlag(varDecl.parent, ts.NodeFlags.Const)) {
+        if (!this.hasNodeFlag(varDecl, ts.NodeFlags.Const)) {
           this.emitNoSpace(';');
           this.maybeEmitJsAnnotation(varDecl);
           this.emit('external');
@@ -601,8 +601,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         }
         this.maybeEmitJsAnnotation(node);
 
-        if (isInterface ||
-            (classDecl.modifiers && (classDecl.modifiers.flags & ts.NodeFlags.Abstract))) {
+        if (isInterface || this.hasModifierFlag(classDecl, ts.ModifierFlags.Abstract)) {
           this.visitClassLike('abstract class', classDecl);
         } else {
           this.visitClassLike('class', classDecl);
@@ -779,7 +778,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
    */
   private visitProperty(
       decl: ts.PropertyDeclaration|ts.ParameterDeclaration, isParameter?: boolean) {
-    let isStatic = base.isStatic(decl);
+    const isStatic = base.isStatic(decl);
     this.emit('external');
     if (isStatic) this.emit('static');
     this.visit(decl.type);
@@ -830,9 +829,9 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
     // Synthesize explicit properties for ctor with 'property parameters'
     let synthesizePropertyParam = (param: ts.ParameterDeclaration) => {
-      if (this.hasFlag(param.modifiers, ts.NodeFlags.Public) ||
-          this.hasFlag(param.modifiers, ts.NodeFlags.Private) ||
-          this.hasFlag(param.modifiers, ts.NodeFlags.Protected)) {
+      if (this.hasModifierFlag(param, ts.ModifierFlags.Public) ||
+          this.hasModifierFlag(param, ts.ModifierFlags.Private) ||
+          this.hasModifierFlag(param, ts.ModifierFlags.Protected)) {
         // TODO: we should enforce the underscore prefix on privates
         this.visitProperty(param, true);
       }
