@@ -92,6 +92,23 @@ external get x;`);
     });
   });
 
+  describe('readonly', () => {
+    it('simple', () => {
+      expectWithTypes(`export class Person {
+  readonly x: number;
+  readonly y: string;
+  readonly z: boolean;
+}`).to.equal(`@JS()
+class Person {
+  // @Ignore
+  Person.fakeConstructor$();
+  external num get x;
+  external String get y;
+  external bool get z;
+}`);
+    });
+  });
+
   it('translates array façades', () => {
     expectWithTypes('function f() : string[] {}').to.equal(`@JS()
 external List<String> f();`);

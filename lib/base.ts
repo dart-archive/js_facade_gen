@@ -126,6 +126,16 @@ export function isStatic(n: ts.Node): boolean {
   return hasStatic;
 }
 
+export function isReadonly(n: ts.Node): boolean {
+  let hasReadonly = false;
+  ts.forEachChild(n, (child) => {
+    if (child.kind === ts.SyntaxKind.ReadonlyKeyword) {
+      hasReadonly = true;
+    }
+  });
+  return hasReadonly;
+}
+
 export function isCallableType(type: ts.TypeNode, tc: ts.TypeChecker): boolean {
   if (isFunctionType(type, tc)) return true;
   if (ts.isTypeReferenceNode(type)) {

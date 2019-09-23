@@ -774,15 +774,17 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.visitName(decl.name);
     this.emitNoSpace(';');
 
-    this.emit('external');
-    if (isStatic) this.emit('static');
-    this.emit('set');
-    this.visitName(decl.name);
-    this.emitNoSpace('(');
-    this.visit(decl.type);
-    this.emit('v');
-    this.emitNoSpace(')');
-    this.emitNoSpace(';');
+    if (!base.isReadonly(decl)) {
+      this.emit('external');
+      if (isStatic) this.emit('static');
+      this.emit('set');
+      this.visitName(decl.name);
+      this.emitNoSpace('(');
+      this.visit(decl.type);
+      this.emit('v');
+      this.emitNoSpace(')');
+      this.emitNoSpace(';');
+    }
   }
 
   private visitClassLike(keyword: string, decl: base.ClassLike) {
