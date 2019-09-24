@@ -18,6 +18,11 @@ export interface TranspilerOptions {
    */
   failFast?: boolean;
   /**
+   * Output TypeScript semantic diagnostics when facade generation fails and TS errors could be the
+   * reason for the failure. When falsey, semantic diagnostics will never be output.
+   */
+  semanticDiagnostics?: boolean;
+  /**
    * Specify the module name (e.g.) d3 instead of determining the module name from the d.ts files.
    * This is useful for libraries that assume they will be loaded with a JS module loader but that
    * Dart needs to load without a module loader until Dart supports JS module loaders.
@@ -296,10 +301,9 @@ export class Transpiler {
       // be the cause of facade generation issues.
       // This greatly speeds up tests and execution.
 
-      // TODO(derekx): This has gotten slower since upgrading from TS 1.7 to TS 3. Removing the
-      // following line makes the tests finish 2 seconds faster. Investigate whether or not there's
-      // a way to speed it up.
-      diagnostics = diagnostics.concat(program.getSemanticDiagnostics());
+      if (this.options.semanticDiagnostics) {
+        diagnostics = diagnostics.concat(program.getSemanticDiagnostics());
+      }
     }
 
     let diagnosticErrs = diagnostics.map((d) => {

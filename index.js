@@ -2,8 +2,11 @@
 
 const main = require('./build/lib/main.js');
 
-var args = require('minimist')(process.argv.slice(2), {base: 'string'});
+var args =
+    require('minimist')(process.argv.slice(2), {base: 'string', boolean: ['semantic-diagnostics']});
 try {
+  args.semanticDiagnositcs = args['semantic-diagnostics'] || false;
+  delete args['semantic-diagnostics'];
   var transpiler = new main.Transpiler(args);
   if (args.destination) console.error('Transpiling', args._, 'to', args.destination);
   transpiler.transpile(args._, args.destination);
