@@ -375,6 +375,10 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
                       Array.prototype.push.call(members, member);
                       break;
                     case ts.SyntaxKind.PropertySignature:
+                      // Suppress the prototype member
+                      if (base.ident(member.name) === 'prototype') {
+                        break;
+                      }
                       addModifier(member, ts.createNode(ts.SyntaxKind.StaticKeyword));
                       member.parent = existing;
                       Array.prototype.push.call(members, member);
