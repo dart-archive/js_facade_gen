@@ -51,6 +51,8 @@ export interface TranspilerOptions {
 export const COMPILER_OPTIONS: ts.CompilerOptions = {
   experimentalDecorators: true,
   module: ts.ModuleKind.ES2015,
+  // ES2015 is targeted rather than a later version of ES because we don't require any features
+  // introduced after ES2015
   target: ts.ScriptTarget.ES2015,
 };
 

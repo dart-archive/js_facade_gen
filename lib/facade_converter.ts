@@ -11,6 +11,7 @@ const FACADE_NODE_MODULES_PREFIX = /^(\.\.\/)*node_modules\//;
 
 // These constants must be kept in sync with package:func/func.dart which provides a canonical set
 // of typedefs defining commonly used function types to simplify specifying function types in Dart.
+// TODO(derekx): Remove the dependency on package:func/func.dart
 const MAX_DART_FUNC_ACTION_PARAMETERS = 4;
 const MAX_DART_FUNC_ACTION_PARAMETERS_OPTIONAL = 1;
 
