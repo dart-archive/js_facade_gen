@@ -133,4 +133,24 @@ external X get x;
 external set x(X v);`);
     });
   });
+
+  describe('special identifiers', () => {
+    it('preserves names that begin with two underscores', () => {
+      expectWithTypes(`export function f(__a: number): boolean;
+export function f(__a: string): boolean;`)
+          .to.equal(`/*external bool f(num JS$__a);*/
+/*external bool f(String JS$__a);*/
+@JS()
+external bool f(dynamic /*num|String*/ JS$__a);`);
+    });
+
+    it('preserves names that begin with one underscore', () => {
+      expectWithTypes(`export function f(_a: number): boolean;
+export function f(_a: string): boolean;`)
+          .to.equal(`/*external bool f(num JS$_a);*/
+/*external bool f(String JS$_a);*/
+@JS()
+external bool f(dynamic /*num|String*/ JS$_a);`);
+    });
+  });
 });
