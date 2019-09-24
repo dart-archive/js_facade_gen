@@ -51,7 +51,7 @@ export interface TypeDisplayOptions {
    * Arguments are emitted directly in normal cases but in the case of type aliases we have to
    * propagate and substitute type arguments.
    */
-  typeArguments?: ts.TypeNode[];
+  typeArguments?: ts.NodeArray<ts.TypeNode>;
 
   /**
    * Parameter declarations to substitute. This is required to support type aliases with type
@@ -64,14 +64,14 @@ export interface TypeDisplayOptions {
  * Summary information on what is imported via a particular import.
  */
 export class ImportSummary {
-  showAll: boolean = false;
+  showAll = false;
   shown: Set<String> = new Set();
   asPrefix: string;
 }
 
-export type ClassLike = ts.ClassDeclaration | ts.InterfaceDeclaration;
-export type NamedDeclaration = ClassLike | ts.PropertyDeclaration | ts.VariableDeclaration |
-    ts.MethodDeclaration | ts.ModuleDeclaration | ts.FunctionDeclaration;
+export type ClassLike = ts.ClassLikeDeclaration|ts.InterfaceDeclaration;
+export type NamedDeclaration = ClassLike|ts.PropertyDeclaration|ts.VariableDeclaration|
+                               ts.MethodDeclaration|ts.ModuleDeclaration|ts.FunctionDeclaration;
 
 /**
  * Interface extending the true InterfaceDeclaration interface to add optional state we store on
@@ -87,19 +87,18 @@ export interface ExtendedInterfaceDeclaration extends ts.InterfaceDeclaration {
 }
 
 export function ident(n: ts.Node): string {
-  if (n.kind === ts.SyntaxKind.Identifier) return (<ts.Identifier>n).text;
+  if (ts.isIdentifier(n)) return n.text;
   if (n.kind === ts.SyntaxKind.FirstLiteralToken) return (n as ts.LiteralLikeNode).text;
-  if (n.kind === ts.SyntaxKind.QualifiedName) {
-    let qname = (<ts.QualifiedName>n);
-    let leftName = ident(qname.left);
-    if (leftName) return leftName + '.' + ident(qname.right);
+  if (ts.isQualifiedName(n)) {
+    let leftName = ident(n.left);
+    if (leftName) return leftName + '.' + ident(n.right);
   }
   return null;
 }
 
 export function isFunctionTypedefLikeInterface(ifDecl: ts.InterfaceDeclaration): boolean {
   return ifDecl.members && ifDecl.members.length === 1 &&
-      ifDecl.members[0].kind === ts.SyntaxKind.CallSignature;
+      ts.isCallSignatureDeclaration(ifDecl.members[0]);
 }
 
 export function getDeclaration(type: ts.Type): ts.Declaration {
@@ -111,10 +110,10 @@ export function getDeclaration(type: ts.Type): ts.Declaration {
 
 export function isExtendsClause(heritageClause: ts.HeritageClause) {
   return heritageClause.token === ts.SyntaxKind.ExtendsKeyword &&
-      heritageClause.parent.kind !== ts.SyntaxKind.InterfaceDeclaration;
+      !ts.isInterfaceDeclaration(heritageClause.parent);
 }
 export function isConstructor(n: ts.Node): boolean {
-  return n.kind === ts.SyntaxKind.Constructor || n.kind === ts.SyntaxKind.ConstructSignature;
+  return ts.isConstructorDeclaration(n) || ts.isConstructSignatureDeclaration(n);
 }
 
 export function isStatic(n: ts.Node): boolean {
@@ -127,9 +126,19 @@ export function isStatic(n: ts.Node): boolean {
   return hasStatic;
 }
 
+export function isReadonly(n: ts.Node): boolean {
+  let hasReadonly = false;
+  ts.forEachChild(n, (child) => {
+    if (child.kind === ts.SyntaxKind.ReadonlyKeyword) {
+      hasReadonly = true;
+    }
+  });
+  return hasReadonly;
+}
+
 export function isCallableType(type: ts.TypeNode, tc: ts.TypeChecker): boolean {
   if (isFunctionType(type, tc)) return true;
-  if (type.kind === ts.SyntaxKind.TypeReference) {
+  if (ts.isTypeReferenceNode(type)) {
     if (tc.getSignaturesOfType(tc.getTypeAtLocation(type), ts.SignatureKind.Call).length > 0)
       return true;
   }
@@ -142,24 +151,22 @@ export function isCallableType(type: ts.TypeNode, tc: ts.TypeChecker): boolean {
  * the alias corresponds to in call sites.
  */
 export function supportedTypeDeclaration(decl: ts.Declaration): boolean {
-  if (decl.kind === ts.SyntaxKind.TypeAliasDeclaration) {
-    let alias = decl as ts.TypeAliasDeclaration;
-    let kind = alias.type.kind;
-    return kind === ts.SyntaxKind.TypeLiteral || kind === ts.SyntaxKind.FunctionType;
+  if (ts.isTypeAliasDeclaration(decl)) {
+    let type = decl.type;
+    return ts.isTypeLiteralNode(type) || ts.isFunctionTypeNode(type);
   }
   return true;
 }
 
 export function isFunctionType(type: ts.TypeNode, tc: ts.TypeChecker): boolean {
-  let kind = type.kind;
-  if (kind === ts.SyntaxKind.FunctionType) return true;
-  if (kind === ts.SyntaxKind.TypeReference) {
+  if (ts.isFunctionTypeNode(type)) return true;
+  if (ts.isTypeReferenceNode(type)) {
     let t = tc.getTypeAtLocation(type);
     if (t.symbol && t.symbol.flags & ts.SymbolFlags.Function) return true;
   }
 
-  if (kind === ts.SyntaxKind.IntersectionType) {
-    let types = (<ts.IntersectionTypeNode>type).types;
+  if (ts.isIntersectionTypeNode(type)) {
+    let types = type.types;
     for (let i = 0; i < types.length; ++i) {
       if (isFunctionType(types[i], tc)) {
         return true;
@@ -168,8 +175,8 @@ export function isFunctionType(type: ts.TypeNode, tc: ts.TypeChecker): boolean {
     return false;
   }
 
-  if (kind === ts.SyntaxKind.UnionType) {
-    let types = (<ts.UnionTypeNode>type).types;
+  if (ts.isUnionTypeNode(type)) {
+    let types = type.types;
     for (let i = 0; i < types.length; ++i) {
       if (!isFunctionType(types[i], tc)) {
         return false;
@@ -180,10 +187,10 @@ export function isFunctionType(type: ts.TypeNode, tc: ts.TypeChecker): boolean {
   // Warning: if the kind is a reference type and the reference is to an
   // interface that only has a call member we will not return that it is a
   // function type.
-  if (kind === ts.SyntaxKind.TypeLiteral) {
-    let members = (<ts.TypeLiteralNode>type).members;
+  if (ts.isTypeLiteralNode(type)) {
+    let members = type.members;
     for (let i = 0; i < members.length; ++i) {
-      if (members[i].kind !== ts.SyntaxKind.CallSignature) {
+      if (ts.isCallSignatureDeclaration(members[i])) {
         return false;
       }
     }
@@ -197,14 +204,14 @@ export function isFunctionType(type: ts.TypeNode, tc: ts.TypeChecker): boolean {
  * the function instead of being a normal type parameter representable by a Dart type.
  */
 export function isThisParameter(param: ts.ParameterDeclaration): boolean {
-  return param.name && param.name.kind === ts.SyntaxKind.Identifier &&
-      (param.name as ts.Identifier).text === 'this';
+  return param.name && ts.isIdentifier(param.name) && param.name.text === 'this';
 }
 
 /**
  * Dart does not have a concept of binding the type of the "this" parameter to a method.
  */
-export function filterThisParameter(params: ts.ParameterDeclaration[]): ts.ParameterDeclaration[] {
+export function filterThisParameter(params: ts.NodeArray<ts.ParameterDeclaration>):
+    ts.ParameterDeclaration[] {
   let ret: ts.ParameterDeclaration[] = [];
   for (let i = 0; i < params.length; i++) {
     let param = params[i];
@@ -223,6 +230,7 @@ export function isTypeNode(node: ts.Node): boolean {
     case ts.SyntaxKind.TypeReference:
     case ts.SyntaxKind.TypeLiteral:
     case ts.SyntaxKind.LastTypeNode:
+    case ts.SyntaxKind.LiteralType:
     case ts.SyntaxKind.ArrayType:
     case ts.SyntaxKind.TypePredicate:
     case ts.SyntaxKind.TypeQuery:
@@ -243,7 +251,7 @@ export function isTypeNode(node: ts.Node): boolean {
 }
 
 export function isCallable(decl: ClassLike): boolean {
-  let members = decl.members as Array<ts.ClassElement>;
+  let members = decl.members as ReadonlyArray<ts.ClassElement>;
   return members.some((member) => {
     return member.kind === ts.SyntaxKind.CallSignature;
   });
@@ -261,7 +269,7 @@ export function copyNodeArrayLocation(src: ts.TextRange, dest: ts.NodeArray<any>
 }
 
 // Polyfill for ES6 Array.find.
-export function arrayFindPolyfill<T>(
+export function arrayFindPolyfill<T extends ts.Node>(
     nodeArray: ts.NodeArray<T>, predicate: (node: T) => boolean): T {
   for (let i = 0; i < nodeArray.length; ++i) {
     if (predicate(nodeArray[i])) return nodeArray[i];
@@ -278,8 +286,7 @@ export function getAncestor(n: ts.Node, kind: ts.SyntaxKind): ts.Node {
 
 export function getEnclosingClass(n: ts.Node): ClassLike {
   while (n) {
-    if (n.kind === ts.SyntaxKind.ClassDeclaration ||
-        n.kind === ts.SyntaxKind.InterfaceDeclaration) {
+    if (ts.isClassDeclaration(n) || ts.isInterfaceDeclaration(n)) {
       return <ClassLike>n;
     }
     n = n.parent;
@@ -327,7 +334,7 @@ export function formatType(s: string, comment: string, options: TypeDisplayOptio
 }
 
 export class TranspilerBase {
-  private idCounter: number = 0;
+  private idCounter = 0;
   constructor(protected transpiler: Transpiler) {}
 
   visit(n: ts.Node) {
@@ -426,15 +433,15 @@ export class TranspilerBase {
     throw new Error('not implemented');
   }
 
-  visitEach(nodes: ts.Node[]) {
+  visitEach(nodes: ts.NodeArray<ts.Node>) {
     nodes.forEach((n) => this.visit(n));
   }
 
-  visitEachIfPresent(nodes?: ts.Node[]) {
+  visitEachIfPresent(nodes?: ts.NodeArray<ts.Node>) {
     if (nodes) this.visitEach(nodes);
   }
 
-  visitList(nodes: ts.Node[], separator?: string) {
+  visitList(nodes: ts.NodeArray<ts.Node>, separator?: string) {
     separator = separator || ',';
     for (let i = 0; i < nodes.length; i++) {
       this.visit(nodes[i]);
@@ -495,15 +502,19 @@ export class TranspilerBase {
     return decorators.some((d) => {
       let decName = ident(d.expression);
       if (decName === name) return true;
-      if (d.expression.kind !== ts.SyntaxKind.CallExpression) return false;
-      let callExpr = (<ts.CallExpression>d.expression);
+      if (!ts.isCallExpression(d.expression)) return false;
+      let callExpr = d.expression;
       decName = ident(callExpr.expression);
       return decName === name;
     });
   }
 
-  hasFlag(n: {flags: number}, flag: ts.NodeFlags): boolean {
-    return n && (n.flags & flag) !== 0 || false;
+  hasNodeFlag(n: ts.Declaration, flag: ts.NodeFlags): boolean {
+    return n && (ts.getCombinedNodeFlags(n) & flag) !== 0 || false;
+  }
+
+  hasModifierFlag(n: ts.Declaration, flag: ts.ModifierFlags): boolean {
+    return n && (ts.getCombinedModifierFlags(n) & flag) !== 0 || false;
   }
 
   getRelativeFileName(fileName: string): string {
@@ -524,7 +535,7 @@ export class TranspilerBase {
     }
   }
 
-  visitParameters(parameters: ts.ParameterDeclaration[]) {
+  visitParameters(parameters: ts.NodeArray<ts.ParameterDeclaration>) {
     this.emitNoSpace('(');
     let firstInitParamIdx = 0;
     for (; firstInitParamIdx < parameters.length; firstInitParamIdx++) {
@@ -532,7 +543,7 @@ export class TranspilerBase {
       let isOpt = parameters[firstInitParamIdx].initializer ||
           parameters[firstInitParamIdx].questionToken ||
           parameters[firstInitParamIdx].dotDotDotToken;
-      if (isOpt && parameters[firstInitParamIdx].name.kind !== ts.SyntaxKind.ObjectBindingPattern) {
+      if (isOpt && !ts.isObjectBindingPattern(parameters[firstInitParamIdx].name)) {
         break;
       }
     }

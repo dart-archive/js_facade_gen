@@ -1,6 +1,3 @@
-/// <reference path="../typings/chai/chai.d.ts"/>
-/// <reference path="../typings/mocha/mocha.d.ts"/>
-/// <reference path="../typings/node/node.d.ts"/>
 import chai = require('chai');
 import fs = require('fs');
 import main = require('../lib/main');
@@ -9,7 +6,7 @@ import ts = require('typescript');
 export type StringMap = {
   [k: string]: string
 };
-export type Input = string | StringMap;
+export type Input = string|StringMap;
 
 export function expectTranslate(tsCode: Input, options?: main.TranspilerOptions) {
   options = options || {};
@@ -24,43 +21,44 @@ export function expectErroneousCode(tsCode: Input, options?: main.TranspilerOpti
 }
 
 let compilerOptions = main.COMPILER_OPTIONS;
-let defaultLibName = ts.getDefaultLibFileName(compilerOptions);
-let libSource = fs.readFileSync(ts.getDefaultLibFilePath(compilerOptions), 'utf-8');
-let libSourceFile: ts.SourceFile;
+let defaultLibFileName = ts.getDefaultLibFileName(compilerOptions);
+let libSourceFiles: Map<string, ts.SourceFile> = new Map();
 
 export function parseFiles(nameToContent: StringMap): ts.Program {
   let result: string;
-  let compilerHost: ts.CompilerHost = {
-    getSourceFile: function(sourceName, languageVersion) {
-      if (nameToContent.hasOwnProperty(sourceName)) {
-        return ts.createSourceFile(
-            sourceName, nameToContent[sourceName], compilerOptions.target, true);
-      }
-      if (sourceName === defaultLibName) {
-        if (!libSourceFile) {
-          // Cache to avoid excessive test times.
-          libSourceFile = ts.createSourceFile(sourceName, libSource, compilerOptions.target, true);
-        }
-        return libSourceFile;
-      }
+  let compilerHost = ts.createCompilerHost(compilerOptions);
+  compilerHost.getSourceFile = (sourceName) => {
+    let sourcePath = sourceName;
+    if (sourcePath === defaultLibFileName) {
+      sourcePath = ts.getDefaultLibFilePath(compilerOptions);
+    } else if (nameToContent.hasOwnProperty(sourcePath)) {
+      return ts.createSourceFile(
+          sourcePath, nameToContent[sourcePath], compilerOptions.target, true);
+    } else if (!fs.existsSync(sourcePath)) {
       return undefined;
-    },
-    writeFile: function(name, text, writeByteOrderMark) {
-      result = text;
-    },
-    fileExists: (sourceName) => {
-      return !!nameToContent[sourceName];
-    },
-    readFile: (filename): string => {
-      throw new Error('unexpected call to readFile');
-    },
-    getDefaultLibFileName: () => defaultLibName,
-    useCaseSensitiveFileNames: () => false,
-    getCanonicalFileName: (filename) => '../' + filename,
-    getCurrentDirectory: () => '',
-    getNewLine: () => '\n',
+    }
+
+    if (!libSourceFiles.has(sourcePath)) {
+      let contents = fs.readFileSync(sourcePath, 'utf-8');
+      // Cache to avoid excessive test times.
+      libSourceFiles.set(
+          sourcePath,
+          ts.createSourceFile(sourcePath, contents, main.COMPILER_OPTIONS.target, true));
+    }
+    return libSourceFiles.get(sourcePath);
   };
+  compilerHost.writeFile = (name, text, writeByteOrderMark) => {
+    result = text;
+  };
+  compilerHost.fileExists = (sourceName) => !!nameToContent[sourceName];
+  compilerHost.readFile = () => {
+    throw new Error('unexpected call to readFile');
+  };
+  compilerHost.useCaseSensitiveFileNames = () => false;
+  compilerHost.getCanonicalFileName = (fileName) => `../${fileName}`;
+  compilerHost.getCurrentDirectory = () => 'fakeDir';
   compilerHost.resolveModuleNames = main.getModuleResolver(compilerHost);
+
   // Create a program from inputs
   let entryPoints = Object.keys(nameToContent);
   let program: ts.Program = ts.createProgram(entryPoints, compilerOptions, compilerHost);

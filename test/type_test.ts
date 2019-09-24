@@ -1,4 +1,3 @@
-/// <reference path="../typings/mocha/mocha.d.ts"/>
 import {expectTranslate} from './test_support';
 
 describe('types', () => {
@@ -158,7 +157,6 @@ external set z(Y<Null, String> v);`);
 external Y<Null, String, Null> get z;
 @JS()
 external set z(Y<Null, String, Null> v);`);
-
   });
 
   it('should create class for type alias literals', () => {
@@ -217,7 +215,6 @@ abstract class EventParameters<T> {
 
 @JS()
 external void dispatch(EventParameters<String> parameters);`);
-
   });
 
   it('should create typedef for type alias function literals', () => {
@@ -248,6 +245,5 @@ external void dispatchSimple(SimpleValueFn<String, num> callback);`);
 /*export type ListOfLists<G> = [G[]];*/
 @JS()
 external List<List<dynamic/*=T*/ > /*Tuple of <T,T,T>*/ > triangles/*<T>*/();`);
-
   });
 });

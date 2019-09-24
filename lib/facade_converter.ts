@@ -9,9 +9,9 @@ import {MergedType} from './merge';
 const FACADE_DEBUG = false;
 const FACADE_NODE_MODULES_PREFIX = /^(\.\.\/)*node_modules\//;
 
-// These constants must be kept in sync with package:func/func.dart which
-// provides a cannonical set of typedefs defining commonly used function types
-// to simplify specifying function types in Dart.
+// These constants must be kept in sync with package:func/func.dart which provides a canonical set
+// of typedefs defining commonly used function types to simplify specifying function types in Dart.
+// TODO(derekx): Remove the dependency on package:func/func.dart
 const MAX_DART_FUNC_ACTION_PARAMETERS = 4;
 const MAX_DART_FUNC_ACTION_PARAMETERS_OPTIONAL = 1;
 
@@ -142,8 +142,7 @@ export class NameRewriter {
     // disambiguate. We could alternately append the full module prefix as well
     // to make the name choice completely unsurprising albeit even uglier.
     // This case should be very rarely hit.
-    let i = 2;
-    while (true) {
+    for (let i = 2;; i++) {  // must use for-loop because of eslint's no-shadow rule
       let candidateName = parts[parts.length - 1] + i;
       if (library.addName(candidateName)) {
         // Able to add name to library.
@@ -151,7 +150,6 @@ export class NameRewriter {
         this.dartTypes.set(fullPath, ret);
         return ret;
       }
-      i++;
     }
   }
 
@@ -195,16 +193,16 @@ function addHideComment(options: TypeDisplayOptions): TypeDisplayOptions {
 }
 
 function setTypeArguments(
-    options: TypeDisplayOptions, typeArguments: ts.TypeNode[]): TypeDisplayOptions {
+    options: TypeDisplayOptions, typeArguments: ts.NodeArray<ts.TypeNode>): TypeDisplayOptions {
   let ret = cloneOptions(options);
   ret.typeArguments = typeArguments;
   return ret;
 }
 
 function resolveTypeArguments(
-    options: TypeDisplayOptions, parameters: ts.TypeParameterDeclaration[]) {
+    options: TypeDisplayOptions, parameters: ts.NodeArray<ts.TypeParameterDeclaration>) {
   let ret = cloneOptions(options);
-  let typeArguments = options.typeArguments ? options.typeArguments : [];
+  let typeArguments = options.typeArguments || ts.createNodeArray();
   ret.resolvedTypeArguments = new Map();
   if (parameters) {
     for (let i = 0; i < parameters.length; ++i) {
@@ -239,7 +237,7 @@ export class FacadeConverter extends base.TranspilerBase {
        'library operator part set static sync typedef yield call')
           .split(/ /);
 
-  private candidateTypes: Map<string, boolean> = new Map();
+  private candidateTypes: Set<string> = new Set();
   private typingsRootRegex: RegExp;
   private genericMethodDeclDepth = 0;
   private nameRewriter: NameRewriter;
@@ -250,21 +248,20 @@ export class FacadeConverter extends base.TranspilerBase {
     this.nameRewriter = new NameRewriter(this);
     this.extractPropertyNames(TS_TO_DART_TYPENAMES, this.candidateTypes);
     // Remove this line if decide to support generating code that avoids dart:html.
-    Object.keys(DART_LIBRARIES_FOR_BROWSER_TYPES)
-        .forEach((propName) => this.candidateTypes.set(propName, true));
+    DART_LIBRARIES_FOR_BROWSER_TYPES.forEach((value, key) => this.candidateTypes.add(key));
 
     this.typingsRootRegex = new RegExp('^' + typingsRoot.replace('.', '\\.'));
   }
 
-  private extractPropertyNames(m: ts.Map<ts.Map<any>>, candidates: Map<string, boolean>) {
-    for (let fileName of Object.keys(m)) {
-      const file = m[fileName];
+  private extractPropertyNames(m: Map<string, Map<string, string>>, candidates: Set<string>) {
+    for (let fileName of m.keys()) {
+      const file = m.get(fileName);
       if (file === undefined) {
         return;
       }
-      Object.keys(file)
+      [...file.keys()]
           .map((propName) => propName.substring(propName.lastIndexOf('.') + 1))
-          .forEach((propName) => candidates.set(propName, true));
+          .forEach((propName) => candidates.add(propName));
     }
   }
 
@@ -282,8 +279,8 @@ export class FacadeConverter extends base.TranspilerBase {
     this.genericMethodDeclDepth--;
   }
 
-  resolvePropertyTypes(tn: ts.TypeNode): ts.Map<ts.PropertyDeclaration> {
-    let res: ts.Map<ts.PropertyDeclaration> = {};
+  resolvePropertyTypes(tn: ts.TypeNode): Map<string, ts.PropertyDeclaration> {
+    let res: Map<string, ts.PropertyDeclaration>;
     if (!tn || !this.tc) return res;
 
     let t = this.tc.getTypeAtLocation(tn);
@@ -296,7 +293,7 @@ export class FacadeConverter extends base.TranspilerBase {
         this.reportError(decl, msg);
         continue;
       }
-      res[sym.name] = <ts.PropertyDeclaration>decl;
+      res.set(sym.name, <ts.PropertyDeclaration>decl);
     }
     return res;
   }
@@ -324,7 +321,8 @@ export class FacadeConverter extends base.TranspilerBase {
     return symbol.declarations.some(d => d.parent.kind === ts.SyntaxKind.FunctionDeclaration);
   }
 
-  generateTypeList(types: ts.TypeNode[], options: TypeDisplayOptions, seperator?: string): string {
+  generateTypeList(
+      types: ReadonlyArray<ts.TypeNode>, options: TypeDisplayOptions, seperator?: string): string {
     seperator = seperator || ',';
     let that = this;
     return types
@@ -368,8 +366,8 @@ export class FacadeConverter extends base.TranspilerBase {
         tuple.elementTypes.forEach((t) => mergedType.merge(t));
         name += this.generateDartTypeName(mergedType.toTypeNode(), addInsideTypeArgument(options));
         name += '>';
-        // This is intentionally not valid Dart code so that it is clear this isn't a Dart
-        // code comment that should use the /*= syntax.
+        // This is intentionally not valid Dart code so that it is clear this isn't a Dart code
+        // comment that should use the /*= syntax.
         comment = 'Tuple of <' +
             this.generateTypeList(tuple.elementTypes, addInsideComment(options)) + '>';
         break;
@@ -419,8 +417,8 @@ export class FacadeConverter extends base.TranspilerBase {
         let callSignature = <ts.FunctionOrConstructorTypeNode>node;
         // TODO(jacobr): instead of removing the expected type of the this parameter, we could add
         // seperate VoidFuncBindThis and FuncBindThis typedefs to package:func/func.dart if we
-        // decide indicating the parameter type of the bound this is useful enough. As JavaScript
-        // is moving away from binding this
+        // decide indicating the parameter type of the bound this is useful enough. As JavaScript is
+        // moving away from binding this
         let parameters = base.filterThisParameter(callSignature.parameters);
         // Use a function signature from package:func where possible.
         let numOptional = numOptionalParameters(parameters);
@@ -473,9 +471,11 @@ export class FacadeConverter extends base.TranspilerBase {
       case ts.SyntaxKind.NumberKeyword:
         name = 'num';
         break;
-      case ts.SyntaxKind.StringLiteralType:
-        comment = '\'' + (node as ts.StringLiteralTypeNode).text + '\'';
-        name = 'String';
+      case ts.SyntaxKind.LiteralType:
+        if (ts.isLiteralTypeNode(node) && ts.isLiteralExpression(node.literal)) {
+          comment = `'${node.literal.text}'`;
+          name = 'String';
+        }
         break;
       case ts.SyntaxKind.StringLiteral:
       case ts.SyntaxKind.StringKeyword:
@@ -581,8 +581,8 @@ export class FacadeConverter extends base.TranspilerBase {
   generateDartName(identifier: ts.EntityName, options: TypeDisplayOptions): string {
     let ret = this.lookupCustomDartTypeName(identifier, options);
     if (ret) return base.formatType(ret.name, ret.comment, options);
-    // TODO(jacobr): handle library import prefixes more robustly. This generally works
-    // but is fragile.
+    // TODO(jacobr): handle library import prefixes more robustly. This generally works but is
+    // fragile.
     return this.maybeAddTypeArguments(base.ident(identifier), options);
   }
 
@@ -651,18 +651,18 @@ export class FacadeConverter extends base.TranspilerBase {
       let fileAndName = this.getFileAndName(identifier, symbol);
 
       if (fileAndName) {
-        let fileSubs = TS_TO_DART_TYPENAMES[fileAndName.fileName];
+        let fileSubs = TS_TO_DART_TYPENAMES.get(fileAndName.fileName);
         if (fileSubs) {
           let name = fileAndName.qname;
-          let dartBrowserType = DART_LIBRARIES_FOR_BROWSER_TYPES.hasOwnProperty(name);
-          if (fileSubs.hasOwnProperty(name)) {
-            let subName = fileSubs[name];
+          let dartBrowserType = DART_LIBRARIES_FOR_BROWSER_TYPES.has(name);
+          if (fileSubs.has(name)) {
+            let subName = fileSubs.get(name);
             if (dartBrowserType) {
-              this.addImport(DART_LIBRARIES_FOR_BROWSER_TYPES[name], subName);
+              this.addImport(DART_LIBRARIES_FOR_BROWSER_TYPES.get(name), subName);
             }
             return {name: this.maybeAddTypeArguments(subName, options)};
           } else {
-            this.addImport(DART_LIBRARIES_FOR_BROWSER_TYPES[name], name);
+            this.addImport(DART_LIBRARIES_FOR_BROWSER_TYPES.get(name), name);
           }
           if (dartBrowserType) {
             // Not a rename but has a dart core libraries definition.
@@ -734,8 +734,8 @@ export class FacadeConverter extends base.TranspilerBase {
   findCommonType(type: ts.TypeNode, common: ts.TypeNode): ts.TypeNode {
     if (common === type) return common;
 
-    // If both types generate the exact same Dart type name without comments then
-    // there is no need to do anything. The types
+    // If both types generate the exact same Dart type name without comments then there is no need
+    // to do anything. The types
     if (this.generateDartTypeName(common, {hideComment: true}) ===
         this.generateDartTypeName(type, {hideComment: true})) {
       return common;
@@ -761,12 +761,11 @@ export class FacadeConverter extends base.TranspilerBase {
       // Fall back to a generic Function type if both types are Function.
       // TODO(jacobr): this is a problematic fallback.
       let fn = <ts.FunctionOrConstructorTypeNode>ts.createNode(ts.SyntaxKind.FunctionType);
-      fn.parameters = <ts.NodeArray<ts.ParameterDeclaration>>[];
       let parameter = <ts.ParameterDeclaration>ts.createNode(ts.SyntaxKind.Parameter);
-      parameter.dotDotDotToken = ts.createNode(ts.SyntaxKind.DotDotDotToken);
+      parameter.dotDotDotToken = ts.createToken(ts.SyntaxKind.DotDotDotToken);
       let name = <ts.Identifier>ts.createNode(ts.SyntaxKind.Identifier);
-      name.text = 'args';
-      fn.parameters.push(parameter);
+      name.escapedText = ts.escapeLeadingUnderscores('args');
+      fn.parameters = ts.createNodeArray([parameter] as ReadonlyArray<ts.ParameterDeclaration>);
       return fn;
     }
     // No common type found.
@@ -790,12 +789,12 @@ export class FacadeConverter extends base.TranspilerBase {
   createEntityName(symbol: ts.Symbol): ts.EntityName {
     let parts = this.tc.getFullyQualifiedName(symbol).split('.');
     let identifier = <ts.Identifier>ts.createNode(ts.SyntaxKind.Identifier);
-    identifier.text = parts[parts.length - 1];
+    identifier.escapedText = ts.escapeLeadingUnderscores(parts[parts.length - 1]);
     // TODO(jacobr): do we need to include all parts in the entity name?
     return identifier;
   }
 
-  safeGetBaseTypes(type: ts.InterfaceType): ts.ObjectType[] {
+  safeGetBaseTypes(type: ts.InterfaceType): ts.BaseType[] {
     // For an unknown, calling TypeChecker.getBaseTypes on an interface
     // that is a typedef like interface causes the typescript compiler to stack
     // overflow. Not sure if this is a bug in the typescript compiler or I am
@@ -812,7 +811,7 @@ export class FacadeConverter extends base.TranspilerBase {
   // where we could reuse an existing Dart type system.
   checkTypeSubtypeOf(source: ts.Type, target: ts.Type) {
     if (source === target) return true;
-    if (!(source.flags & ts.TypeFlags.Interface)) return false;
+    if (!(source.flags & ts.ObjectFlags.Interface)) return false;
     let baseTypes = this.safeGetBaseTypes(source as ts.InterfaceType);
     for (let i = 0; i < baseTypes.length; ++i) {
       if (baseTypes[i] === target) return true;

@@ -35,8 +35,8 @@ export class MergedType {
           // function types. TODO(jacobr): handle them for Function types?
           let typeRef = <ts.TypeReferenceNode>t;
           let decl = this.fc.getDeclaration(typeRef.typeName);
-          if (decl !== null && decl.kind === ts.SyntaxKind.TypeAliasDeclaration) {
-            let alias = <ts.TypeAliasDeclaration>decl;
+          if (decl !== null && ts.isTypeAliasDeclaration(decl)) {
+            let alias = decl;
             if (!base.supportedTypeDeclaration(alias)) {
               if (typeRef.typeArguments) {
                 console.log(
@@ -66,7 +66,7 @@ export class MergedType {
     let union = <ts.UnionTypeNode>ts.createNode(ts.SyntaxKind.UnionType);
     base.copyLocation(this.types.get(names[0]), union);
 
-    union.types = Array.from(this.types.values()) as ts.NodeArray<ts.TypeNode>;
+    union.types = ts.createNodeArray(Array.from(this.types.values()));
     return union;
   }
 
@@ -78,9 +78,9 @@ export class MergedType {
     let merged = this.toTypeNode();
     if (merged == null) return null;
 
-    if (merged.kind === ts.SyntaxKind.UnionType) {
+    if (ts.isUnionTypeNode(merged)) {
       // For union types find a Dart type that satisfies all the types.
-      let types = (<ts.UnionTypeNode>merged).types;
+      let types = merged.types;
       // Generate a common base type for an array of types.
       // The implemented is currently incomplete often returning null when there
       // might really be a valid common base type.
@@ -119,10 +119,10 @@ export class MergedParameter {
   toParameterDeclaration(): ts.ParameterDeclaration {
     let ret = <ts.ParameterDeclaration>ts.createNode(ts.SyntaxKind.Parameter);
     let nameIdentifier = <ts.Identifier>ts.createNode(ts.SyntaxKind.Identifier);
-    nameIdentifier.text = Array.from(this.name).join('_');
+    nameIdentifier.escapedText = ts.escapeLeadingUnderscores(Array.from(this.name).join('_'));
     ret.name = nameIdentifier;
     if (this.optional) {
-      ret.questionToken = ts.createNode(ts.SyntaxKind.QuestionToken);
+      ret.questionToken = ts.createToken(ts.SyntaxKind.QuestionToken);
     }
     base.copyLocation(this.textRange, ret);
     ret.type = this.type.toTypeNode();
@@ -135,7 +135,7 @@ export class MergedParameter {
 
   private name: Set<string> = new Set();
   private type: MergedType;
-  private optional: boolean = false;
+  private optional = false;
   private textRange: ts.Node;
 }
 
@@ -159,14 +159,14 @@ export class MergedTypeParameter {
   toTypeParameterDeclaration(): ts.TypeParameterDeclaration {
     let ret = <ts.TypeParameterDeclaration>ts.createNode(ts.SyntaxKind.TypeParameter);
     let nameIdentifier = <ts.Identifier>ts.createNode(ts.SyntaxKind.Identifier);
-    nameIdentifier.text = this.name;
+    nameIdentifier.escapedText = ts.escapeLeadingUnderscores(this.name);
     ret.name = nameIdentifier;
     base.copyLocation(this.textRange, ret);
     let constraint = this.constraint.toTypeNode();
     // TODO(jacobr): remove this check once we have support for union types within comments.
     // We can't currently handle union types in merged type parameters as the comments for type
     // parameters in function types are not there for documentation and impact strong mode.
-    if (constraint && constraint.kind !== ts.SyntaxKind.UnionType) {
+    if (constraint && !ts.isUnionTypeNode(constraint)) {
       ret.constraint = constraint;
     }
     return ret;
@@ -211,12 +211,14 @@ export class MergedTypeParameters {
       return undefined;
     }
 
-    let ret = [] as ts.NodeArray<ts.TypeParameterDeclaration>;
-    base.copyNodeArrayLocation(this.textRange, ret);
+    const parameters: ts.TypeParameterDeclaration[] = [];
 
     this.mergedParameters.forEach((mergedParameter) => {
-      ret.push(mergedParameter.toTypeParameterDeclaration());
+      parameters.push(mergedParameter.toTypeParameterDeclaration());
     });
+
+    const ret = ts.createNodeArray(parameters);
+    base.copyNodeArrayLocation(this.textRange, ret);
 
     return ret;
   }
@@ -249,10 +251,11 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
         Array.prototype.push.apply(srcBodyBlock.statements, bodyBlock.statements);
       } else {
         // moduleDecl.body is a ModuleDeclaration.
-        srcBodyBlock.statements.push(moduleDecl.body);
+        // Small hack to get around NodeArrays being readonly
+        Array.prototype.push.call(srcBodyBlock.statements, moduleDecl.body);
       }
 
-      f.statements.splice(i, 1);
+      Array.prototype.splice.call(f.statements, i, 1);
       i--;
     } else {
       modules.set(name, moduleDecl);
@@ -261,153 +264,150 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
 
   function addModifier(n: ts.Node, modifier: ts.Node) {
     if (!n.modifiers) {
-      n.modifiers = <ts.ModifiersArray>[];
-      n.modifiers.flags = 0;
+      n.modifiers = ts.createNodeArray();
     }
     modifier.parent = n;
-    n.modifiers.push(modifier);
+    // Small hack to get around NodeArrays being readonly
+    Array.prototype.push.call(n.modifiers, modifier);
   }
 
   function mergeVariablesIntoClasses(n: ts.Node, classes: Map<string, base.ClassLike>) {
-    switch (n.kind) {
-      case ts.SyntaxKind.VariableStatement:
-        let statement = <ts.VariableStatement>n;
-        statement.declarationList.declarations.forEach(function(
-            declaration: ts.VariableDeclaration) {
-          if (declaration.name.kind === ts.SyntaxKind.Identifier) {
-            let name: string = (<ts.Identifier>(declaration.name)).text;
-            let existingClass = classes.has(name);
-            let hasConstructor = false;
-            if (declaration.type) {
-              let type: ts.TypeNode = declaration.type;
-              if (type.kind === ts.SyntaxKind.TypeLiteral) {
-                let literal = <ts.TypeLiteralNode>type;
-                hasConstructor = literal.members.some((member: ts.Node) => {
-                  return member.kind === ts.SyntaxKind.ConstructSignature;
-                });
-              } else if (type.kind === ts.SyntaxKind.TypeReference) {
-                // Handle interfaces with constructors. As Dart does not support calling arbitrary
-                // functions like constructors we need to upgrade the interface to be a class
-                // so we call invoke the constructor on the interface class.
-                // Example typescript library definition matching this pattern:
-                //
-                // interface XStatic {
-                //   new (a: string, b): XStatic;
-                //   foo();
-                // }
-                //
-                // declare var X: XStatic;
-                //
-                // In JavaScript you could just write new X() and create an
-                // instance of XStatic. We don't
-                let typeRef = type as ts.TypeReferenceNode;
-                let typeName = typeRef.typeName;
-                let symbol = fc.tc.getSymbolAtLocation(typeName);
-                if (symbol == null) return;
-                let decl = fc.getSymbolDeclaration(symbol, typeName);
-                if (decl == null) return;
-                if (decl.kind !== ts.SyntaxKind.InterfaceDeclaration) return;
-                let interfaceDecl = decl as base.ExtendedInterfaceDeclaration;
-                if (!interfaceDecl.members.some((member) => {
-                      return member.kind === ts.SyntaxKind.ConstructSignature;
-                    }))
-                  return;
+    if (ts.isVariableStatement(n)) {
+      let statement = n;
+      statement.declarationList.declarations.forEach((declaration: ts.VariableDeclaration) => {
+        if (ts.isIdentifier(declaration.name)) {
+          let name = declaration.name.text;
+          let existingClass = classes.has(name);
+          let hasConstructor = false;
+          if (declaration.type) {
+            let type: ts.TypeNode = declaration.type;
+            if (ts.isTypeLiteralNode(type)) {
+              let literal = <ts.TypeLiteralNode>type;
+              hasConstructor = literal.members.some((member: ts.Node) => {
+                return ts.isConstructSignatureDeclaration(member);
+              });
+            } else if (ts.isTypeReferenceNode(type)) {
+              // Handle interfaces with constructors. As Dart does not support calling arbitrary
+              // functions like constructors we need to upgrade the interface to be a class
+              // so we call invoke the constructor on the interface class.
+              // Example typescript library definition matching this pattern:
+              //
+              // interface XStatic {
+              //   new (a: string, b): XStatic;
+              //   foo();
+              // }
+              //
+              // declare var X: XStatic;
+              //
+              // In JavaScript you could just write new X() and create an
+              // instance of XStatic. We don't
+              let typeRef = type;
+              let typeName = typeRef.typeName;
+              let symbol = fc.tc.getSymbolAtLocation(typeName);
+              if (symbol == null) return;
+              let decl = fc.getSymbolDeclaration(symbol, typeName);
+              if (decl == null) return;
+              if (decl.kind !== ts.SyntaxKind.InterfaceDeclaration) return;
+              let interfaceDecl = decl as base.ExtendedInterfaceDeclaration;
+              if (!interfaceDecl.members.some((member) => {
+                    return member.kind === ts.SyntaxKind.ConstructSignature;
+                  }))
+                return;
 
-                if (interfaceDecl.classLikeVariableDeclaration == null) {
-                  // We could add extra logic to be safer such as only infering that variable names
-                  // are class like for cases where variable names are UpperCamelCase matching JS
-                  // conventions that a variable is a Class definition.
-                  interfaceDecl.classLikeVariableDeclaration = declaration;
-                }
-              }
-            }
-
-            if (existingClass || hasConstructor) {
-              if (!existingClass) {
-                // Create a stub existing class to upgrade the object literal to if there is not an
-                // existing class with the same name.
-                let clazz = <ts.ClassDeclaration>ts.createNode(ts.SyntaxKind.ClassDeclaration);
-                base.copyLocation(declaration, clazz);
-                clazz.name = declaration.name as ts.Identifier;
-                clazz.members = <ts.NodeArray<ts.ClassElement>>[];
-                base.copyNodeArrayLocation(declaration, clazz.members);
-                replaceNode(n, clazz);
-                classes.set(name, clazz);
-              }
-
-              let existing = classes.get(name);
-              if (existing.kind === ts.SyntaxKind.InterfaceDeclaration) {
-                let interfaceDecl = existing as base.ExtendedInterfaceDeclaration;
-                // It is completely safe to assume that we know the precise class like variable
-                // declaration for the interface in this case as they have the same exact name.
+              if (interfaceDecl.classLikeVariableDeclaration == null) {
+                // We could add extra logic to be safer such as only infering that variable names
+                // are class like for cases where variable names are UpperCamelCase matching JS
+                // conventions that a variable is a Class definition.
                 interfaceDecl.classLikeVariableDeclaration = declaration;
               }
-              let members = existing.members as Array<ts.ClassElement>;
-              if (declaration.type) {
-                let type: ts.TypeNode = declaration.type;
-                if (type.kind === ts.SyntaxKind.TypeLiteral) {
-                  if (existingClass) {
-                    removeNode(n);
-                  }
-                  let literal = <ts.TypeLiteralNode>type;
-                  literal.members.forEach((member: ts.Node) => {
-                    switch (member.kind) {
-                      case ts.SyntaxKind.ConstructSignature:
-                        let signature: any = member;
-                        let constructor =
-                            <ts.ConstructorDeclaration>ts.createNode(ts.SyntaxKind.Constructor);
-                        constructor.parameters = signature.parameters;
-                        constructor.type = signature.type;
-                        base.copyLocation(signature, constructor);
-                        constructor.typeParameters = signature.typeParameters;
-                        constructor.parent = existing;
-                        members.push(<ts.ClassElement>constructor);
-                        break;
-                      case ts.SyntaxKind.Constructor:
-                        member.parent = existing.parent;
-                        members.push(<ts.ClassElement>member);
-                        break;
-                      case ts.SyntaxKind.MethodSignature:
-                        member.parent = existing.parent;
-                        members.push(<ts.ClassElement>member);
-                        break;
-                      case ts.SyntaxKind.PropertySignature:
-                        addModifier(member, ts.createNode(ts.SyntaxKind.StaticKeyword));
-                        member.parent = existing;
-                        members.push(<ts.ClassElement>member);
-                        break;
-                      case ts.SyntaxKind.IndexSignature:
-                        member.parent = existing.parent;
-                        members.push(<ts.ClassElement>member);
-                        break;
-                      case ts.SyntaxKind.CallSignature:
-                        member.parent = existing.parent;
-                        members.push(<ts.ClassElement>member);
-                        break;
-                      default:
-                        throw 'Unhandled TypeLiteral member type:' + member.kind;
-                    }
-                  });
+            }
+          }
+
+          if (existingClass || hasConstructor) {
+            if (!existingClass) {
+              // Create a stub existing class to upgrade the object literal to if there is not an
+              // existing class with the same name.
+              let clazz = <ts.ClassDeclaration>ts.createNode(ts.SyntaxKind.ClassDeclaration);
+              base.copyLocation(declaration, clazz);
+              clazz.name = declaration.name as ts.Identifier;
+              clazz.members = ts.createNodeArray();
+              base.copyNodeArrayLocation(declaration, clazz.members);
+              replaceNode(n, clazz);
+              classes.set(name, clazz);
+            }
+
+            let existing = classes.get(name);
+            if (ts.isInterfaceDeclaration(existing)) {
+              let interfaceDecl = existing as base.ExtendedInterfaceDeclaration;
+              // It is completely safe to assume that we know the precise class like variable
+              // declaration for the interface in this case as they have the same exact name.
+              interfaceDecl.classLikeVariableDeclaration = declaration;
+            }
+            let members = existing.members;
+            if (declaration.type) {
+              let type: ts.TypeNode = declaration.type;
+              if (ts.isTypeLiteralNode(type)) {
+                if (existingClass) {
+                  removeNode(n);
                 }
+                let literal = <ts.TypeLiteralNode>type;
+                literal.members.forEach((member: ts.TypeElement) => {
+                  switch (member.kind) {
+                      // Array.prototype.push is used below as a small hack to get around NodeArrays
+                      // being readonly
+                    case ts.SyntaxKind.ConstructSignature:
+                      let signature: any = member;
+                      let constructor =
+                          <ts.ConstructorDeclaration>ts.createNode(ts.SyntaxKind.Constructor);
+                      constructor.parameters = signature.parameters;
+                      constructor.type = signature.type;
+                      base.copyLocation(signature, constructor);
+                      constructor.typeParameters = signature.typeParameters;
+                      constructor.parent = existing as ts.ClassLikeDeclaration;
+                      Array.prototype.push.call(members, constructor);
+                      break;
+                    case ts.SyntaxKind.Constructor:
+                      member.parent = existing.parent;
+                      Array.prototype.push.call(members, member);
+                      break;
+                    case ts.SyntaxKind.MethodSignature:
+                      member.parent = existing.parent;
+                      Array.prototype.push.call(members, member);
+                      break;
+                    case ts.SyntaxKind.PropertySignature:
+                      addModifier(member, ts.createNode(ts.SyntaxKind.StaticKeyword));
+                      member.parent = existing;
+                      Array.prototype.push.call(members, member);
+                      break;
+                    case ts.SyntaxKind.IndexSignature:
+                      member.parent = existing.parent;
+                      Array.prototype.push.call(members, member);
+                      break;
+                    case ts.SyntaxKind.CallSignature:
+                      member.parent = existing.parent;
+                      Array.prototype.push.call(members, member);
+                      break;
+                    default:
+                      throw 'Unhandled TypeLiteral member type:' + member.kind;
+                  }
+                });
               }
             }
-          } else {
-            throw 'Unexpected VariableStatement identifier kind';
           }
-        });
-        break;
-      case ts.SyntaxKind.ModuleBlock:
-        ts.forEachChild(n, (child) => mergeVariablesIntoClasses(child, classes));
-        break;
-      default:
-        break;
+        } else {
+          throw 'Unexpected VariableStatement identifier kind';
+        }
+      });
+    } else if (ts.isModuleBlock(n)) {
+      ts.forEachChild(n, (child) => mergeVariablesIntoClasses(child, classes));
     }
   }
 
   function removeFromArray(nodes: ts.NodeArray<ts.Node>, v: ts.Node) {
     for (let i = 0, len = nodes.length; i < len; ++i) {
       if (nodes[i] === v) {
-        nodes.splice(i, 1);
+        // Small hack to get around NodeArrays being readonly
+        Array.prototype.splice.call(nodes, i, 1);
         break;
       }
     }
@@ -432,7 +432,8 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
   function replaceInArray(nodes: ts.NodeArray<ts.Node>, v: ts.Node, replacement: ts.Node) {
     for (let i = 0, len = nodes.length; i < len; ++i) {
       if (nodes[i] === v) {
-        nodes[i] = replacement;
+        // Small hack to get around NodeArrays being readonly
+        Array.prototype.splice.call(nodes, i, 1, replacement);
         break;
       }
     }
@@ -456,37 +457,29 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
   }
 
   function gatherClasses(n: ts.Node, classes: Map<string, base.ClassLike>) {
-    switch (n.kind) {
-      case ts.SyntaxKind.ClassDeclaration:
-      case ts.SyntaxKind.InterfaceDeclaration:
-        let classDecl = <base.ClassLike>n;
-        let name = classDecl.name.text;
-        // TODO(jacobr): validate that the classes have consistent
-        // modifiers, etc.
-        if (classes.has(name)) {
-          let existing = classes.get(name);
-          (classDecl.members as Array<ts.ClassElement>).forEach((e: ts.ClassElement) => {
-            (existing.members as Array<ts.ClassElement>).push(e);
-            e.parent = existing;
-          });
-          removeNode(classDecl);
-        } else {
-          classes.set(name, classDecl);
-          // Perform other class level post processing here.
-        }
-        break;
-      case ts.SyntaxKind.ModuleDeclaration:
-      case ts.SyntaxKind.SourceFile:
-        let moduleClasses: Map<string, base.ClassLike> = new Map();
-        ts.forEachChild(n, (child) => gatherClasses(child, moduleClasses));
-        ts.forEachChild(n, (child) => mergeVariablesIntoClasses(child, moduleClasses));
-
-        break;
-      case ts.SyntaxKind.ModuleBlock:
-        ts.forEachChild(n, (child) => gatherClasses(child, classes));
-        break;
-      default:
-        break;
+    if (ts.isClassExpression(n) || ts.isClassDeclaration(n) || ts.isInterfaceDeclaration(n)) {
+      let classDecl = <base.ClassLike>n;
+      let name = classDecl.name.text;
+      // TODO(jacobr): validate that the classes have consistent
+      // modifiers, etc.
+      if (classes.has(name)) {
+        let existing = classes.get(name);
+        (classDecl.members as ts.NodeArray<ts.ClassElement>).forEach((e: ts.ClassElement) => {
+          // Small hack to get around NodeArrays being readonly
+          Array.prototype.push.call(existing.members, e);
+          e.parent = existing;
+        });
+        removeNode(classDecl);
+      } else {
+        classes.set(name, classDecl);
+        // Perform other class level post processing here.
+      }
+    } else if (ts.isModuleDeclaration(n) || ts.isSourceFile(n)) {
+      let moduleClasses: Map<string, base.ClassLike> = new Map();
+      ts.forEachChild(n, (child) => gatherClasses(child, moduleClasses));
+      ts.forEachChild(n, (child) => mergeVariablesIntoClasses(child, moduleClasses));
+    } else if (ts.isModuleBlock(n)) {
+      ts.forEachChild(n, (child) => gatherClasses(child, classes));
     }
   }
   gatherClasses(f, new Map());

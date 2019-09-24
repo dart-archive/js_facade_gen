@@ -1,4 +1,3 @@
-/// <reference path="../typings/mocha/mocha.d.ts"/>
 import {expectTranslate} from './test_support';
 
 describe('calls', () => {

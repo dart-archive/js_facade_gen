@@ -1,8 +1,7 @@
-/// <reference path="../typings/mocha/mocha.d.ts"/>
 import {expectTranslate} from './test_support';
 
 function expectEmptyTranslates(cases: string[]) {
-  for (let tsCode of cases) {
+  for (const tsCode of cases) {
     expectTranslate(tsCode).to.equal('');
   }
 }

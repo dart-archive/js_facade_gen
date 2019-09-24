@@ -1,33 +1,8 @@
-/// <reference path="../typings/mocha/mocha.d.ts"/>
-
 import {expectTranslate, FAKE_MAIN} from './test_support';
-
-let es6RuntimeDeclarations = `
-    interface Iterable<T> {}
-    interface Symbol {}
-    interface Map<K, V> {
-      get(key: K): V;
-      has(key: K): boolean;
-      set(key: K, value: V): Map<K, V>;
-      size: number;
-      delete(key: K): boolean;
-      forEach(callbackfn: (value: V, index: K, map: Map<K, V>) => void, thisArg?: any): void;
-    }
-    interface Array<T> {
-      find(predicate: (value: T, index: number, obj: Array<T>) => boolean, thisArg?: any): T;
-    }
-    declare var Map: {
-      new<K, V>(): Map<any, any>;
-      prototype: Map<any, any>;
-    };
-    declare var Symbol;
-    `;
-
 
 function getSources(str: string): {[k: string]: string} {
   let srcs: {[k: string]: string} = {
-    'some/path/to/typings/es6-shim/es6-shim': es6RuntimeDeclarations,
-    'other/file.ts': `
+    'other.ts': `
         export class X {
           map(x: number): string { return String(x); }
           static get(m: any, k: string): number { return m[k]; }
@@ -117,6 +92,23 @@ external get x;`);
     });
   });
 
+  describe('readonly', () => {
+    it('simple', () => {
+      expectWithTypes(`export class Person {
+  readonly x: number;
+  readonly y: string;
+  readonly z: boolean;
+}`).to.equal(`@JS()
+class Person {
+  // @Ignore
+  Person.fakeConstructor$();
+  external num get x;
+  external String get y;
+  external bool get z;
+}`);
+    });
+  });
+
   it('translates array façades', () => {
     expectWithTypes('function f() : string[] {}').to.equal(`@JS()
 external List<String> f();`);
@@ -132,16 +124,33 @@ abstract class DSVParsedArray<T> implements List<T> {
   });
 
   describe('error detection', () => {
-    it('support imports', () => {
-      expectWithTypes(
-          'import {X} from "other/file";\n' +
-          'let x:X;')
-          .to.equal(`import "file.dart" show X;
+    it('supports imports', () => {
+      expectWithTypes(`import {X} from "other";\nlet x:X;`).to.equal(`import "other.dart" show X;
 
 @JS()
 external X get x;
 @JS()
 external set x(X v);`);
+    });
+  });
+
+  describe('special identifiers', () => {
+    it('preserves names that begin with two underscores', () => {
+      expectWithTypes(`export function f(__a: number): boolean;
+export function f(__a: string): boolean;`)
+          .to.equal(`/*external bool f(num JS$__a);*/
+/*external bool f(String JS$__a);*/
+@JS()
+external bool f(dynamic /*num|String*/ JS$__a);`);
+    });
+
+    it('preserves names that begin with one underscore', () => {
+      expectWithTypes(`export function f(_a: number): boolean;
+export function f(_a: string): boolean;`)
+          .to.equal(`/*external bool f(num JS$_a);*/
+/*external bool f(String JS$_a);*/
+@JS()
+external bool f(dynamic /*num|String*/ JS$_a);`);
     });
   });
 });

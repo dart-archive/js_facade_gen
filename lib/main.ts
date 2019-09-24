@@ -18,6 +18,11 @@ export interface TranspilerOptions {
    */
   failFast?: boolean;
   /**
+   * Output TypeScript semantic diagnostics when facade generation fails and TS errors could be the
+   * reason for the failure. When falsey, semantic diagnostics will never be output.
+   */
+  semanticDiagnostics?: boolean;
+  /**
    * Specify the module name (e.g.) d3 instead of determining the module name from the d.ts files.
    * This is useful for libraries that assume they will be loaded with a JS module loader but that
    * Dart needs to load without a module loader until Dart supports JS module loaders.
@@ -49,10 +54,11 @@ export interface TranspilerOptions {
 }
 
 export const COMPILER_OPTIONS: ts.CompilerOptions = {
-  allowNonTsExtensions: true,
   experimentalDecorators: true,
-  module: ts.ModuleKind.CommonJS,
-  target: ts.ScriptTarget.ES5,
+  module: ts.ModuleKind.ES2015,
+  // ES2015 is targeted rather than a later version of ES because we don't require any features
+  // introduced after ES2015
+  target: ts.ScriptTarget.ES2015,
 };
 
 /**
@@ -76,7 +82,7 @@ export class Transpiler {
   imports: Map<String, ImportSummary>;
   // Comments attach to all following AST nodes before the next 'physical' token. Track the earliest
   // offset to avoid printing comments multiple times.
-  private lastCommentIdx: number = -1;
+  private lastCommentIdx = -1;
   private errors: string[] = [];
 
   private transpilers: TranspilerBase[];
@@ -113,9 +119,9 @@ export class Transpiler {
     this.declarationTranspiler.setTypeChecker(program.getTypeChecker());
 
     // Only write files that were explicitly passed in.
-    let fileSet: {[s: string]: boolean} = {};
-    fileNames.forEach((f) => fileSet[f] = true);
-    let sourceFiles = program.getSourceFiles().filter((sourceFile) => fileSet[sourceFile.fileName]);
+    const fileSet = new Set(fileNames);
+    let sourceFiles =
+        program.getSourceFiles().filter((sourceFile) => fileSet.has(sourceFile.fileName));
 
     this.errors = [];
 
@@ -127,20 +133,21 @@ export class Transpiler {
     // Check for global module export declarations and propogate them to all modules they export.
     sourceFiles.forEach((f: ts.SourceFile) => {
       f.statements.forEach((n: ts.Node) => {
-        if (n.kind !== ts.SyntaxKind.GlobalModuleExportDeclaration) return;
+        if (!ts.isNamespaceExportDeclaration(n)) return;
         // This is the name we are interested in for Dart purposes until Dart supports AMD module
         // loaders. This module name should all be reflected by all modules exported by this
         // library as we need to specify a global module location for every Dart library.
-        let globalModuleName = base.ident((n as ts.GlobalModuleExportDeclaration).name);
+        let globalModuleName = base.ident(n.name);
         f.moduleName = globalModuleName;
 
         f.statements.forEach((e: ts.Node) => {
-          if (e.kind !== ts.SyntaxKind.ExportDeclaration) return;
-          let exportDecl = e as ts.ExportDeclaration;
+          if (!ts.isExportDeclaration(e)) return;
+          let exportDecl = e;
           if (!exportDecl.moduleSpecifier) return;
           let moduleLocation = <ts.StringLiteral>exportDecl.moduleSpecifier;
           let location = moduleLocation.text;
-          let resolvedPath = host.resolveModuleNames([location], f.fileName);
+          let resolvedPath = host.resolveModuleNames(
+              [location], f.fileName, undefined, undefined, COMPILER_OPTIONS);
           resolvedPath.forEach((p) => {
             if (p.isExternalLibraryImport) return;
             let exportedFile = sourceFileMap[p.resolvedFileName];
@@ -189,30 +196,26 @@ export class Transpiler {
   }
 
   private createCompilerHost(): ts.CompilerHost {
+    let compilerHost = ts.createCompilerHost(COMPILER_OPTIONS);
     let defaultLibFileName = ts.getDefaultLibFileName(COMPILER_OPTIONS);
     defaultLibFileName = this.normalizeSlashes(defaultLibFileName);
-    let compilerHost: ts.CompilerHost = {
-      getSourceFile: (sourceName, languageVersion) => {
-        let sourcePath = sourceName;
-        if (sourceName === defaultLibFileName) {
-          sourcePath = ts.getDefaultLibFilePath(COMPILER_OPTIONS);
-        }
-        if (!fs.existsSync(sourcePath)) return undefined;
-        let contents = fs.readFileSync(sourcePath, 'UTF-8');
-        return ts.createSourceFile(sourceName, contents, COMPILER_OPTIONS.target, true);
-      },
-      writeFile(name, text, writeByteOrderMark) {
-        fs.writeFile(name, text);
-      },
-      fileExists: (filename) => fs.existsSync(filename),
-      readFile: (filename) => fs.readFileSync(filename, 'utf-8'),
-      getDefaultLibFileName: () => defaultLibFileName,
-      useCaseSensitiveFileNames: () => true,
-      getCanonicalFileName: (filename) => filename,
-      getCurrentDirectory: () => '',
-      getNewLine: () => '\n',
+    compilerHost.getSourceFile = (sourceName) => {
+      let sourcePath = sourceName;
+      if (sourceName === defaultLibFileName) {
+        sourcePath = ts.getDefaultLibFilePath(COMPILER_OPTIONS);
+      }
+      if (!fs.existsSync(sourcePath)) return undefined;
+      let contents = fs.readFileSync(sourcePath, 'utf-8');
+      return ts.createSourceFile(sourceName, contents, COMPILER_OPTIONS.target, true);
     };
+    compilerHost.writeFile = (name, text, writeByteOrderMark) => {
+      fs.writeFile(name, text, undefined);
+    };
+    compilerHost.useCaseSensitiveFileNames = () => true;
+    compilerHost.getCanonicalFileName = (filename) => filename;
+    compilerHost.getNewLine = () => '\n';
     compilerHost.resolveModuleNames = getModuleResolver(compilerHost);
+
     return compilerHost;
   }
 
@@ -249,7 +252,8 @@ export class Transpiler {
     this.popContext();
     if (this.outputStack.length > 0) {
       this.reportError(
-          sourceFile, 'Internal error managing output contexts. ' +
+          sourceFile,
+          'Internal error managing output contexts. ' +
               'Inconsistent push and pop context calls.');
     }
     this.pushContext(OutputContext.Import);
@@ -296,7 +300,10 @@ export class Transpiler {
       // code is not a generic compiler, so only yields TS errors if they could
       // be the cause of facade generation issues.
       // This greatly speeds up tests and execution.
-      diagnostics = diagnostics.concat(program.getSemanticDiagnostics());
+
+      if (this.options.semanticDiagnostics) {
+        diagnostics = diagnostics.concat(program.getSemanticDiagnostics());
+      }
     }
 
     let diagnosticErrs = diagnostics.map((d) => {
@@ -329,11 +336,11 @@ export class Transpiler {
     if (this.normalizeSlashes(path.resolve('/x/', filePath)) !== filePath) {
       return filePath;  // already relative.
     }
-    let base = this.options.basePath || '';
-    if (filePath.indexOf(base) !== 0 && !filePath.match(/\.d\.ts$/)) {
-      throw new Error(`Files must be located under base, got ${filePath} vs ${base}`);
+    let basePath = this.options.basePath || '';
+    if (filePath.indexOf(basePath) !== 0 && !filePath.match(/\.d\.ts$/)) {
+      throw new Error(`Files must be located under base, got ${filePath} vs ${basePath}`);
     }
-    return this.normalizeSlashes(path.relative(base, filePath));
+    return this.normalizeSlashes(path.relative(basePath, filePath));
   }
 
   getDartFileName(filePath?: string): string {
@@ -432,8 +439,8 @@ export class Transpiler {
         'Unsupported node type ' + (<any>ts).SyntaxKind[node.kind] + ': ' + node.getFullText());
   }
 
-  private normalizeSlashes(path: string) {
-    return path.replace(/\\/g, '/');
+  private normalizeSlashes(filePath: string) {
+    return filePath.replace(/\\/g, '/');
   }
 
   private translateComment(comment: string): string {
@@ -472,8 +479,7 @@ export function getModuleResolver(compilerHost: ts.CompilerHost) {
   return (moduleNames: string[], containingFile: string): ts.ResolvedModule[] => {
     let res: ts.ResolvedModule[] = [];
     for (let mod of moduleNames) {
-      let lookupRes =
-          ts.nodeModuleNameResolver(mod, containingFile, COMPILER_OPTIONS, compilerHost);
+      let lookupRes = ts.resolveModuleName(mod, containingFile, COMPILER_OPTIONS, compilerHost);
       if (lookupRes.resolvedModule) {
         res.push(lookupRes.resolvedModule);
         continue;
@@ -490,11 +496,11 @@ export function getModuleResolver(compilerHost: ts.CompilerHost) {
 }
 
 class Output {
-  private result: string = '';
-  private firstColumn: boolean = true;
+  private result = '';
+  private firstColumn = true;
 
-  insideCodeComment: boolean = false;
-  private codeCommentResult: string = '';
+  insideCodeComment = false;
+  private codeCommentResult = '';
 
   /**
    * Line break if the current line is not empty.
@@ -544,7 +550,7 @@ class Output {
   }
 
   emitType(s: string, comment: string) {
-    this.emit(base.formatType(s, comment, this.insideCodeComment));
+    this.emit(base.formatType(s, comment, {insideComment: this.insideCodeComment}));
   }
 
   /**
