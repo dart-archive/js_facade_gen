@@ -149,7 +149,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     if (this.tc.getSignaturesOfType(type, ts.SignatureKind.Call).length > 0) return true;
     if (this.tc.getSignaturesOfType(type, ts.SignatureKind.Construct).length > 0) return true;
     if (type.symbol) {
-      let declaration = <ts.InterfaceDeclaration>type.symbol.declarations[0];
+      let declaration = type.symbol.declarations.find(ts.isInterfaceDeclaration);
       // We have to check the actual declaration as
       if (declaration && declaration.members) {
         let members = declaration.members;

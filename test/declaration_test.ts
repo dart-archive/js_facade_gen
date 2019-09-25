@@ -412,6 +412,24 @@ external XStatic get X;
 external set X(XStatic v);`);
 
     expectTranslate(`
+declare var X: XStatic;
+
+interface XStatic {
+  new (a: string, b): X;
+  foo();
+}
+`).to.equal(`@JS()
+external XStatic get X;
+@JS()
+external set X(XStatic v);
+
+@JS("X")
+abstract class XStatic {
+  external factory XStatic(String a, b);
+  external foo();
+}`);
+
+    expectTranslate(`
 interface XStatic {
   new (a: string, b): XStatic;
   foo();
