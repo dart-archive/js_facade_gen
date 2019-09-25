@@ -282,8 +282,7 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
           if (declaration.type) {
             let type: ts.TypeNode = declaration.type;
             if (ts.isTypeLiteralNode(type)) {
-              let literal = <ts.TypeLiteralNode>type;
-              hasConstructor = literal.members.some((member: ts.Node) => {
+              hasConstructor = type.members.some((member: ts.Node) => {
                 return ts.isConstructSignatureDeclaration(member);
               });
             } else if (ts.isTypeReferenceNode(type)) {
@@ -350,19 +349,15 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
                 if (existingClass) {
                   removeNode(n);
                 }
-                let literal = <ts.TypeLiteralNode>type;
-                literal.members.forEach((member: ts.TypeElement) => {
+                type.members.forEach((member: ts.TypeElement) => {
                   switch (member.kind) {
                       // Array.prototype.push is used below as a small hack to get around NodeArrays
                       // being readonly
                     case ts.SyntaxKind.ConstructSignature:
-                      let signature: any = member;
-                      let constructor =
-                          <ts.ConstructorDeclaration>ts.createNode(ts.SyntaxKind.Constructor);
-                      constructor.parameters = signature.parameters;
-                      constructor.type = signature.type;
+                      let signature = member as ts.ConstructSignatureDeclaration;
+                      let constructor = ts.createConstructSignature(
+                          signature.typeParameters, signature.parameters, signature.type);
                       base.copyLocation(signature, constructor);
-                      constructor.typeParameters = signature.typeParameters;
                       constructor.parent = existing as ts.ClassLikeDeclaration;
                       Array.prototype.push.call(members, constructor);
                       break;
