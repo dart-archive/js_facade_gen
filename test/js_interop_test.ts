@@ -403,6 +403,7 @@ interface SampleAudioNode {
   addEventListener(type: "ended", listener: (ev: Event) => any, useCapture?: boolean): void;
   addEventListener(type: string, listener: EventListenerOrEventListenerObject, useCapture?: boolean): void;
 }`).to.equal(`import "dart:html" show Event;
+import "package:func/func.dart";
 
 @anonymous
 @JS()
@@ -410,7 +411,7 @@ abstract class SampleAudioNode {
   /*external void addEventListener('ended' type, dynamic listener(Event ev), [bool useCapture]);*/
   /*external void addEventListener(String type, EventListener|EventListenerObject listener, [bool useCapture]);*/
   external void addEventListener(String /*'ended'|String*/ type,
-      dynamic /*dynamic Function(Event)|EventListener|EventListenerObject*/ listener,
+      dynamic /*Func1<Event, dynamic>|EventListener|EventListenerObject*/ listener,
       [bool useCapture]);
 }`);
 
@@ -488,12 +489,13 @@ interface C {
   oncached: (ev: Event) => any;
 }
 declare var C: {new(): C; CHECKING: number; }`)
-          .to.equal(`import "dart:html" show Event;
+          .to.equal(`import "package:func/func.dart";
+import "dart:html" show Event;
 
 @JS("C")
 abstract class C {
-  external dynamic Function(Event) get oncached;
-  external set oncached(dynamic Function(Event) v);
+  external Func1<Event, dynamic> get oncached;
+  external set oncached(Func1<Event, dynamic> v);
   external factory C();
   external static num get CHECKING;
   external static set CHECKING(num v);
@@ -933,6 +935,7 @@ external addEventListener(
 function addEventListener(type: 'load', listener: (this: HTMLImageElement, event: Event) => void);
 function addEventListener(type: string, listener: (this: Element, event: Event) => void);
 `).to.equal(`import "dart:html" show ImageElement, Event, Element;
+import "package:func/func.dart";
 
 /*external addEventListener('load' type, void listener(ImageElement JS$this, Event event));*/
 /*external addEventListener(
