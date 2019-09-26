@@ -233,8 +233,8 @@ export class FacadeConverter extends base.TranspilerBase {
 
   // These are the built-in and limited keywords.
   static DART_OTHER_KEYWORDS =
-      ('abstract as async await covariant deferred dynamic export external factory Function get implements import ' +
-       'library mixin operator part set static sync typedef yield call')
+      ('abstract as async await deferred dynamic export external factory get implements import ' +
+       'library operator part set static sync typedef yield call')
           .split(/ /);
 
   private candidateTypes: Set<string> = new Set();
