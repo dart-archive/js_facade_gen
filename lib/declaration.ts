@@ -450,9 +450,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
           let paramType: ts.TypeNode;
           let type = paramDecl.type;
           if (type) {
-            if (type.kind === ts.SyntaxKind.ArrayType) {
-              let arrayType = <ts.ArrayTypeNode>type;
-              paramType = arrayType.elementType;
+            if (ts.isArrayTypeNode(type)) {
+              paramType = type.elementType;
             } else if (type.kind !== ts.SyntaxKind.AnyKeyword) {
               console.error('Warning: falling back to dynamic for varArgs type: ' + type.getText());
             }

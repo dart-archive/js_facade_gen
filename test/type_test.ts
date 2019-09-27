@@ -91,12 +91,10 @@ external List<String> get x;
 external set x(List<String> v);`);
   });
   it('should support function types', () => {
-    expectTranslate('var x: (a: string) => string;').to.equal(`import "package:func/func.dart";
-
+    expectTranslate('var x: (a: string) => string;').to.equal(`@JS()
+external String Function(String) get x;
 @JS()
-external Func1<String, String> get x;
-@JS()
-external set x(Func1<String, String> v);`);
+external set x(String Function(String) v);`);
   });
 });
 

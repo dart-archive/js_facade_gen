@@ -9,12 +9,6 @@ import {MergedType} from './merge';
 const FACADE_DEBUG = false;
 const FACADE_NODE_MODULES_PREFIX = /^(\.\.\/)*node_modules\//;
 
-// These constants must be kept in sync with package:func/func.dart which provides a canonical set
-// of typedefs defining commonly used function types to simplify specifying function types in Dart.
-// TODO(derekx): Remove the dependency on package:func/func.dart
-const MAX_DART_FUNC_ACTION_PARAMETERS = 4;
-const MAX_DART_FUNC_ACTION_PARAMETERS_OPTIONAL = 1;
-
 /**
  * Prefix to add to a variable name that leaves the JS name referenced
  * unchanged.
@@ -30,13 +24,6 @@ export function fixupIdentifierName(text: string): string {
           FacadeConverter.DART_OTHER_KEYWORDS.indexOf(text) !== -1 || text.match(/^(\d|_)/)) ?
       DART_RESERVED_NAME_PREFIX + text :
       text;
-}
-
-function numOptionalParameters(parameters: ts.ParameterDeclaration[]): number {
-  for (let i = 0; i < parameters.length; ++i) {
-    if (parameters[i].questionToken) return parameters.length - i;
-  }
-  return 0;
 }
 
 function hasVarArgs(parameters: ts.ParameterDeclaration[]): boolean {
@@ -233,8 +220,8 @@ export class FacadeConverter extends base.TranspilerBase {
 
   // These are the built-in and limited keywords.
   static DART_OTHER_KEYWORDS =
-      ('abstract as async await deferred dynamic export external factory get implements import ' +
-       'library operator part set static sync typedef yield call')
+      ('abstract as async await covariant deferred dynamic export external factory Function get implements import ' +
+       'library mixin operator part set static sync typedef yield call')
           .split(/ /);
 
   private candidateTypes: Set<string> = new Set();
@@ -420,22 +407,9 @@ export class FacadeConverter extends base.TranspilerBase {
         // decide indicating the parameter type of the bound this is useful enough. As JavaScript is
         // moving away from binding this
         let parameters = base.filterThisParameter(callSignature.parameters);
-        // Use a function signature from package:func where possible.
-        let numOptional = numOptionalParameters(parameters);
-        let isVoid = callSignature.type && callSignature.type.kind === ts.SyntaxKind.VoidKeyword;
-        if (parameters.length <= MAX_DART_FUNC_ACTION_PARAMETERS &&
-            numOptional <= MAX_DART_FUNC_ACTION_PARAMETERS_OPTIONAL && !hasVarArgs(parameters)) {
-          this.addImport('package:func/func.dart');
-          let typeDefName = (isVoid) ? 'VoidFunc' : 'Func';
-          typeDefName += parameters.length.toString();
-          if (numOptional > 0) {
-            typeDefName += 'Opt' + numOptional;
-          }
-          name = typeDefName;
-          let numArgs = parameters.length + (isVoid ? 0 : 1);
-          if (numArgs > 0) {
-            name += '<';
-          }
+        if (!hasVarArgs(parameters)) {
+          name = this.generateDartTypeName(callSignature.type, addInsideTypeArgument(options));
+          name += ' Function(';
           let isFirst = true;
           for (let i = 0; i < parameters.length; ++i) {
             if (isFirst) {
@@ -445,15 +419,7 @@ export class FacadeConverter extends base.TranspilerBase {
             }
             name += this.generateDartTypeName(parameters[i].type, addInsideTypeArgument(options));
           }
-          if (!isVoid) {
-            if (!isFirst) {
-              name += ', ';
-            }
-            name += this.generateDartTypeName(callSignature.type, addInsideTypeArgument(options));
-          }
-          if (numArgs > 0) {
-            name += '>';
-          }
+          name += ')';
         } else {
           name = 'Function';
           if (node.getSourceFile()) {
