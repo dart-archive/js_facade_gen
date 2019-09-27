@@ -450,11 +450,9 @@ export class FacadeConverter extends base.TranspilerBase {
       case ts.SyntaxKind.NullKeyword:
         name = 'Null';
         break;
+      case ts.SyntaxKind.NeverKeyword:
       case ts.SyntaxKind.VoidKeyword:
-        // void cannot be used as a type argument in Dart so we fall back to Object if void is
-        // unfortunately specified as a type argument.
-        // We may need to  update this logic if Dart treatment of void type arguments changes.
-        name = options.insideTypeArgument ? 'Null' : 'void';
+        name = 'void';
         break;
       case ts.SyntaxKind.UndefinedKeyword:
         // TODO(jacobr): I'm not 100% sure whether this should be Null or dynamic.
@@ -471,7 +469,7 @@ export class FacadeConverter extends base.TranspilerBase {
       case ts.SyntaxKind.ThisType:
         return this.generateDartName(base.getEnclosingClass(node).name, options);
       default:
-        this.reportError(node, 'Unexpected TypeNode kind: ' + node.kind);
+        this.reportError(node, 'Unexpected TypeNode kind: ' + ts.SyntaxKind[node.kind]);
     }
     if (name == null) {
       this.reportError(node, 'Internal error. Generate null type name.');
