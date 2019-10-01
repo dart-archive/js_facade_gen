@@ -241,4 +241,22 @@ external void dispatchSimple(SimpleValueFn<String, num> callback);`);
 @JS()
 external List<List<dynamic/*=T*/ > /*Tuple of <T,T,T>*/ > triangles/*<T>*/();`);
   });
+
+  it('supports the keyof operator and the indexed access operator', () => {
+    expectTranslate(`export interface A {
+      a: number;
+    }
+    export function f<K extends keyof A>(first: K, second: A[K]): boolean;`)
+        .to.equal(`@anonymous
+@JS()
+abstract class A {
+  external num get a;
+  external set a(num v);
+  external factory A({num a});
+}
+
+@JS()
+external bool f/*<K extends keyof A>*/(
+    dynamic/*=K*/ first, dynamic /*A[K]*/ second);`);
+  });
 });
