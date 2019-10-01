@@ -333,146 +333,117 @@ export class FacadeConverter extends base.TranspilerBase {
       return 'dynamic';
     }
 
-    switch (node.kind) {
-      case ts.SyntaxKind.TypeQuery:
+    if (ts.isTypeQueryNode(node)) {
+      name = 'dynamic';
+      // TODO(jacobr): evaluate supporting this case.
+      // let query = <ts.TypeQueryNode>node;
+      // name += '/* TypeQuery: typeof ' + base.ident(query.exprName) + ' */';
+    } else if (ts.isTypePredicateNode(node)) {
+      name = 'bool';
+      comment = base.ident(node.parameterName) + ' is ' +
+          this.generateDartTypeName(node.type, addInsideComment(options));
+    } else if (ts.isTupleTypeNode(node)) {
+      name = 'List<';
+      let mergedType = new MergedType(this);
+      node.elementTypes.forEach((t) => mergedType.merge(t));
+      name += this.generateDartTypeName(mergedType.toTypeNode(), addInsideTypeArgument(options));
+      name += '>';
+      // This is intentionally not valid Dart code so that it is clear this isn't a Dart code
+      // comment that should use the /*= syntax.
+      comment =
+          'Tuple of <' + this.generateTypeList(node.elementTypes, addInsideComment(options)) + '>';
+    } else if (ts.isUnionTypeNode(node) || ts.isIntersectionTypeNode(node)) {
+      let merged = new MergedType(this);
+      merged.merge(node);
+      let simpleType = merged.toSimpleTypeNode();
+      if (simpleType) {
+        name = this.generateDartTypeName(simpleType, addHideComment(options));
+      } else {
         name = 'dynamic';
-        // TODO(jacobr): evaluate supporting this case.
-        // let query = <ts.TypeQueryNode>node;
-        // name += '/* TypeQuery: typeof ' + base.ident(query.exprName) + ' */';
-        break;
-      case ts.SyntaxKind.TypePredicate: {
-        let predicate = node as ts.TypePredicateNode;
-        name = 'bool';
-        comment = base.ident(predicate.parameterName) + ' is ' +
-            this.generateDartTypeName(predicate.type, addInsideComment(options));
-      } break;
-      case ts.SyntaxKind.TupleType:
-        let tuple = <ts.TupleTypeNode>node;
-        name = 'List<';
-        let mergedType = new MergedType(this);
-        tuple.elementTypes.forEach((t) => mergedType.merge(t));
-        name += this.generateDartTypeName(mergedType.toTypeNode(), addInsideTypeArgument(options));
-        name += '>';
-        // This is intentionally not valid Dart code so that it is clear this isn't a Dart code
-        // comment that should use the /*= syntax.
-        comment = 'Tuple of <' +
-            this.generateTypeList(tuple.elementTypes, addInsideComment(options)) + '>';
-        break;
-      case ts.SyntaxKind.UnionType:
-      case ts.SyntaxKind.IntersectionType: {
-        let typeNode = <ts.UnionOrIntersectionTypeNode>node;
-        let merged = new MergedType(this);
-        merged.merge(typeNode);
-        let simpleType = merged.toSimpleTypeNode();
-        if (simpleType) {
-          name = this.generateDartTypeName(simpleType, addHideComment(options));
-        } else {
-          name = 'dynamic';
+      }
+      let types = node.types;
+      comment = this.generateTypeList(
+          types, addInsideComment(options), node.kind === ts.SyntaxKind.UnionType ? '|' : '&');
+    } else if (ts.isTypePredicateNode(node)) {
+      return this.generateDartTypeName(node.type, options);
+    } else if (ts.isTypeReferenceNode(node)) {
+      name = this.generateDartName(node.typeName, setTypeArguments(options, node.typeArguments));
+    } else if (ts.isTypeLiteralNode(node)) {
+      let members = node.members;
+      if (members.length === 1 && ts.isIndexSignatureDeclaration(members[0])) {
+        let indexSig = <ts.IndexSignatureDeclaration>members[0];
+        if (indexSig.parameters.length > 1) {
+          this.reportError(indexSig, 'Expected an index signature to have a single parameter');
         }
-        let types = typeNode.types;
-        comment = this.generateTypeList(
-            types, addInsideComment(options), node.kind === ts.SyntaxKind.UnionType ? '|' : '&');
-      } break;
-      case ts.SyntaxKind.TypePredicate:
-        return this.generateDartTypeName((node as ts.TypePredicateNode).type, options);
-      case ts.SyntaxKind.TypeReference:
-        let typeRef = <ts.TypeReferenceNode>node;
-        name = this.generateDartName(
-            typeRef.typeName, setTypeArguments(options, typeRef.typeArguments));
-        break;
-      case ts.SyntaxKind.TypeLiteral:
-        let members = (<ts.TypeLiteralNode>node).members;
-        if (members.length === 1 && members[0].kind === ts.SyntaxKind.IndexSignature) {
-          let indexSig = <ts.IndexSignatureDeclaration>(members[0]);
-          if (indexSig.parameters.length > 1) {
-            this.reportError(indexSig, 'Expected an index signature to have a single parameter');
+        // Unfortunately for JS interop, we cannot treat JS Objects as Dart
+        // Map objects. We could treat them as JSMap<indexSig.type>
+        // if we define a base JSMap type that is Map like but not actually
+        // a map.
+        name = 'dynamic';
+        comment = 'JSMap of <' +
+            this.generateDartTypeName(indexSig.parameters[0].type, addInsideComment(options)) +
+            ',' + this.generateDartTypeName(indexSig.type, addInsideComment(options)) + '>';
+      } else {
+        name = 'dynamic';
+        comment = node.getText();
+      }
+    } else if (ts.isFunctionTypeNode(node)) {
+      // TODO(jacobr): instead of removing the expected type of the this parameter, we could add
+      // seperate VoidFuncBindThis and FuncBindThis typedefs to package:func/func.dart if we
+      // decide indicating the parameter type of the bound this is useful enough. As JavaScript is
+      // moving away from binding this
+      let parameters = base.filterThisParameter(node.parameters);
+      if (!hasVarArgs(parameters)) {
+        name = this.generateDartTypeName(node.type, addInsideTypeArgument(options));
+        name += ' Function(';
+        let isFirst = true;
+        for (let i = 0; i < parameters.length; ++i) {
+          if (isFirst) {
+            isFirst = false;
+          } else {
+            name += ', ';
           }
-          // Unfortunately for JS interop, we cannot treat JS Objects as Dart
-          // Map objects. We could treat them as JSMap<indexSig.type>
-          // if we define a base JSMap type that is Map like but not actually
-          // a map.
-          name = 'dynamic';
-          comment = 'JSMap of <' +
-              this.generateDartTypeName(indexSig.parameters[0].type, addInsideComment(options)) +
-              ',' + this.generateDartTypeName(indexSig.type, addInsideComment(options)) + '>';
-        } else {
-          name = 'dynamic';
+          name += this.generateDartTypeName(parameters[i].type, addInsideTypeArgument(options));
+        }
+        name += ')';
+      } else {
+        name = 'Function';
+        if (node.getSourceFile()) {
           comment = node.getText();
         }
-        break;
-      case ts.SyntaxKind.FunctionType:
-        let callSignature = <ts.FunctionOrConstructorTypeNode>node;
-        // TODO(jacobr): instead of removing the expected type of the this parameter, we could add
-        // seperate VoidFuncBindThis and FuncBindThis typedefs to package:func/func.dart if we
-        // decide indicating the parameter type of the bound this is useful enough. As JavaScript is
-        // moving away from binding this
-        let parameters = base.filterThisParameter(callSignature.parameters);
-        if (!hasVarArgs(parameters)) {
-          name = this.generateDartTypeName(callSignature.type, addInsideTypeArgument(options));
-          name += ' Function(';
-          let isFirst = true;
-          for (let i = 0; i < parameters.length; ++i) {
-            if (isFirst) {
-              isFirst = false;
-            } else {
-              name += ', ';
-            }
-            name += this.generateDartTypeName(parameters[i].type, addInsideTypeArgument(options));
-          }
-          name += ')';
-        } else {
-          name = 'Function';
-          if (node.getSourceFile()) {
-            comment = node.getText();
-          }
-        }
-        break;
-      case ts.SyntaxKind.ArrayType:
-        name = 'List' +
-            '<' +
-            this.generateDartTypeName(
-                (<ts.ArrayTypeNode>node).elementType, addInsideTypeArgument(options)) +
-            '>';
-        break;
-      case ts.SyntaxKind.NumberKeyword:
-        name = 'num';
-        break;
-      case ts.SyntaxKind.LiteralType:
-        if (ts.isLiteralTypeNode(node) && ts.isLiteralExpression(node.literal)) {
-          comment = `'${node.literal.text}'`;
-          name = 'String';
-        }
-        break;
-      case ts.SyntaxKind.StringLiteral:
-      case ts.SyntaxKind.StringKeyword:
+      }
+    } else if (ts.isArrayTypeNode(node)) {
+      name = 'List' +
+          '<' + this.generateDartTypeName(node.elementType, addInsideTypeArgument(options)) + '>';
+    } else if (node.kind === ts.SyntaxKind.NumberKeyword) {
+      name = 'num';
+    } else if (node.kind === ts.SyntaxKind.LiteralType) {
+      if (ts.isLiteralTypeNode(node) && ts.isLiteralExpression(node.literal)) {
+        comment = `'${node.literal.text}'`;
         name = 'String';
-        break;
-      case ts.SyntaxKind.NullKeyword:
-        name = 'Null';
-        break;
-      case ts.SyntaxKind.VoidKeyword:
-        // void cannot be used as a type argument in Dart so we fall back to Object if void is
-        // unfortunately specified as a type argument.
-        // We may need to  update this logic if Dart treatment of void type arguments changes.
-        name = options.insideTypeArgument ? 'Null' : 'void';
-        break;
-      case ts.SyntaxKind.UndefinedKeyword:
-        // TODO(jacobr): I'm not 100% sure whether this should be Null or dynamic.
-        name = 'dynamic';
-        break;
-      case ts.SyntaxKind.BooleanKeyword:
-        name = 'bool';
-        break;
-      case ts.SyntaxKind.AnyKeyword:
-        name = 'dynamic';
-        break;
-      case ts.SyntaxKind.ParenthesizedType:
-        return this.generateDartTypeName((node as ts.ParenthesizedTypeNode).type, options);
-      case ts.SyntaxKind.ThisType:
-        return this.generateDartName(base.getEnclosingClass(node).name, options);
-      default:
-        this.reportError(node, 'Unexpected TypeNode kind: ' + node.kind);
+      }
+    } else if (ts.isStringLiteral(node) || node.kind === ts.SyntaxKind.StringKeyword) {
+      name = 'String';
+    } else if (node.kind === ts.SyntaxKind.NullKeyword) {
+      name = 'Null';
+    } else if (
+        node.kind === ts.SyntaxKind.NeverKeyword || node.kind === ts.SyntaxKind.VoidKeyword) {
+      name = 'void';
+    } else if (node.kind === ts.SyntaxKind.UndefinedKeyword) {
+      // TODO(jacobr): I'm not 100% sure whether this should be Null or dynamic.
+      name = 'dynamic';
+    } else if (node.kind === ts.SyntaxKind.BooleanKeyword) {
+      name = 'bool';
+    } else if (node.kind === ts.SyntaxKind.AnyKeyword) {
+      name = 'dynamic';
+    } else if (ts.isParenthesizedTypeNode(node)) {
+      return this.generateDartTypeName(node.type, options);
+    } else if (ts.isThisTypeNode(node)) {
+      return this.generateDartName(base.getEnclosingClass(node).name, options);
+    } else {
+      this.reportError(node, 'Unexpected TypeNode kind: ' + ts.SyntaxKind[node.kind]);
     }
+
     if (name == null) {
       this.reportError(node, 'Internal error. Generate null type name.');
       name = 'dynamic';

@@ -129,21 +129,18 @@ class X extends Y<A, B> {
   X.fakeConstructor$() : super.fakeConstructor$();
 }`);
   });
-  it('should hanlde single <void> generic argument', () => {
+  it('should handle <void> and <Null> generic arguments', () => {
     expectTranslate('var x: X<number>;').to.equal(`@JS()
 external X<num> get x;
 @JS()
 external set x(X<num> v);`);
     expectTranslate('class X extends Y<void> { }').to.equal(`@JS()
-class X extends Y<Null> {
+class X extends Y<void> {
   // @Ignore
   X.fakeConstructor$() : super.fakeConstructor$();
 }`);
-  });
-
-  it('should replace void generic argument with Object', () => {
     expectTranslate('class X extends Y<void, string> { }').to.equal(`@JS()
-class X extends Y<Null, String> {
+class X extends Y<void, String> {
   // @Ignore
   X.fakeConstructor$() : super.fakeConstructor$();
 }`);
@@ -152,9 +149,9 @@ external Y<Null, String> get z;
 @JS()
 external set z(Y<Null, String> v);`);
     expectTranslate('var z : Y<void, string, void>;').to.equal(`@JS()
-external Y<Null, String, Null> get z;
+external Y<void, String, void> get z;
 @JS()
-external set z(Y<Null, String, Null> v);`);
+external set z(Y<void, String, void> v);`);
   });
 
   it('should create class for type alias literals', () => {

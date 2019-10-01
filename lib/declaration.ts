@@ -72,7 +72,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       if (!base.isStatic(node) && classDecl != null) return memberName;
       path.push(memberName);
     } else {
-      throw 'Internal error. Unexpected node kind:' + node.kind;
+      throw 'Internal error. Unexpected node kind:' + ts.SyntaxKind[node.kind];
     }
     if (suppressUnneededPaths && path.length === 1) {
       // No need to specify the path if is simply the node name or the escaped version of the node
@@ -691,6 +691,14 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         break;
       case ts.SyntaxKind.ProtectedKeyword:
         // Handled in `visitDeclarationMetadata` below.
+        break;
+      case ts.SyntaxKind.DeclareKeyword:
+        // In an ambient top level declaration like "declare var" or "declare function", the declare
+        // keyword is stored as a modifier but we don't need to handle it. The JS interop code that
+        // needs to be emitted to access these variables or functions is the same regardless of
+        // whether they are declared in a .d.ts file or a .ts file.
+        // "declare var x" or "export var x" in a .d.ts file is handled the same way as "var x" in a
+        // .ts file
         break;
       case ts.SyntaxKind.VariableStatement:
         let variableStmt = <ts.VariableStatement>node;

@@ -242,6 +242,7 @@ export function isTypeNode(node: ts.Node): boolean {
     case ts.SyntaxKind.UndefinedKeyword:
     case ts.SyntaxKind.BooleanKeyword:
     case ts.SyntaxKind.AnyKeyword:
+    case ts.SyntaxKind.NeverKeyword:
     case ts.SyntaxKind.FunctionType:
     case ts.SyntaxKind.ThisType:
       return true;
