@@ -694,7 +694,11 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         break;
       case ts.SyntaxKind.DeclareKeyword:
         // In an ambient top level declaration like "declare var" or "declare function", the declare
-        // keyword is stored as a modifier but we don't need to handle it.
+        // keyword is stored as a modifier but we don't need to handle it. The JS interop code that
+        // needs to be emitted to access these variables or functions is the same regardless of
+        // whether they are declared in a .d.ts file or a .ts file.
+        // "declare var x" or "export var x" in a .d.ts file is handled the same way as "var x" in a
+        // .ts file
         break;
       case ts.SyntaxKind.VariableStatement:
         let variableStmt = <ts.VariableStatement>node;
