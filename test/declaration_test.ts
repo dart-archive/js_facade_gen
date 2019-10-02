@@ -381,7 +381,7 @@ abstract class X {
 }`);
   });
   it('supports interface properties', () => {
-    expectTranslate('interface X { x: string; y; }').to.equal(`@anonymous
+    expectTranslate(`interface X { 'x': string; y; }`).to.equal(`@anonymous
 @JS()
 abstract class X {
   external String get x;

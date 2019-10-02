@@ -526,12 +526,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         }
       } break;
       case ts.SyntaxKind.StringLiteral: {
-        this.emit('String');
-        this.enterCodeComment();
         let sLit = <ts.LiteralExpression>node;
-        let text = JSON.stringify(sLit.text);
-        this.emit(text);
-        this.exitCodeComment();
+        this.emit(sLit.text);
       } break;
       case ts.SyntaxKind.CallSignature: {
         let fn = <ts.SignatureDeclaration>node;
