@@ -381,7 +381,7 @@ abstract class X {
 }`);
   });
   it('supports interface properties', () => {
-    expectTranslate(`interface X { 'x': string; y; }`).to.equal(`@anonymous
+    expectTranslate('interface X { x: string; y; }').to.equal(`@anonymous
 @JS()
 abstract class X {
   external String get x;
@@ -389,6 +389,13 @@ abstract class X {
   external get y;
   external set y(v);
   external factory X({String x, y});
+}`);
+    expectTranslate(`interface X { '!@#$%^&*': string; }`).to.equal(`@anonymous
+@JS()
+abstract class X {
+  /*external String get !@#$%^&*;*/
+  /*external set !@#$%^&*(String v);*/
+  external factory X();
 }`);
   });
 
