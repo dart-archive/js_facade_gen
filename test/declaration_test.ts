@@ -390,12 +390,36 @@ abstract class X {
   external set y(v);
   external factory X({String x, y});
 }`);
+  });
+
+  it('handles interface properties with names that are invalid in Dart ', () => {
     expectTranslate(`interface X { '!@#$%^&*': string; }`).to.equal(`@anonymous
 @JS()
 abstract class X {
   /*external String get !@#$%^&*;*/
   /*external set !@#$%^&*(String v);*/
   external factory X();
+}`);
+    expectTranslate(`interface X { '5abcde': string; }`).to.equal(`@anonymous
+@JS()
+abstract class X {
+  /*external String get 5abcde;*/
+  /*external set 5abcde(String v);*/
+  external factory X();
+}`);
+    expectTranslate(`interface X { '_wxyz': string; }`).to.equal(`@anonymous
+@JS()
+abstract class X {
+  /*external String get _wxyz;*/
+  /*external set _wxyz(String v);*/
+  external factory X();
+}`);
+    expectTranslate(`interface X { 'foo_34_81$': string; }`).to.equal(`@anonymous
+@JS()
+abstract class X {
+  external String get foo_34_81$;
+  external set foo_34_81$(String v);
+  external factory X({String foo_34_81$});
 }`);
   });
 
