@@ -96,9 +96,9 @@ export function ident(n: ts.Node): string {
   return null;
 }
 
-export function isValidDartIdentifier(name: ts.StringLiteral) {
-  const validIdentifierRegExp = new RegExp('^[a-zA-Z0-9_]*$');
-  return validIdentifierRegExp.test(name.text);
+export function isValidDartIdentifier(text: string) {
+  const validIdentifierRegExp = new RegExp('^[^0-9_][a-zA-Z0-9_$]*$');
+  return validIdentifierRegExp.test(text);
 }
 
 export function isFunctionTypedefLikeInterface(ifDecl: ts.InterfaceDeclaration): boolean {

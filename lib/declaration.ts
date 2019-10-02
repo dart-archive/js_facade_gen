@@ -223,8 +223,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.visitMergingOverloads(decl.members);
 
     if (isPropertyBag) {
-      const propertiesWithValidNames =
-          properties.filter(p => !ts.isStringLiteral(p.name) || base.isValidDartIdentifier(p.name));
+      const propertiesWithValidNames = properties.filter(
+          p => !ts.isStringLiteral(p.name) || base.isValidDartIdentifier(p.name.text));
       this.emit('external factory');
       this.fc.visitTypeName(name);
       if (propertiesWithValidNames.length) {
@@ -775,7 +775,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
    */
   private visitProperty(
       decl: ts.PropertyDeclaration|ts.ParameterDeclaration, isParameter?: boolean) {
-    const hasValidName = !ts.isStringLiteral(decl.name) || base.isValidDartIdentifier(decl.name);
+    const hasValidName =
+        !ts.isStringLiteral(decl.name) || base.isValidDartIdentifier(decl.name.text);
     const isStatic = base.isStatic(decl);
 
     // TODO(derekx): Properties with names that contain special characters are currently ignored by

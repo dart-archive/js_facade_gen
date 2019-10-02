@@ -21,7 +21,8 @@ export const DART_RESERVED_NAME_PREFIX = 'JS$';
  */
 export function fixupIdentifierName(text: string): string {
   return (FacadeConverter.DART_RESERVED_WORDS.indexOf(text) !== -1 ||
-          FacadeConverter.DART_OTHER_KEYWORDS.indexOf(text) !== -1 || text.match(/^(\d|_)/)) ?
+          FacadeConverter.DART_OTHER_KEYWORDS.indexOf(text) !== -1 ||
+          !base.isValidDartIdentifier(text)) ?
       DART_RESERVED_NAME_PREFIX + text :
       text;
 }
