@@ -232,6 +232,8 @@ export function isTypeNode(node: ts.Node): boolean {
     case ts.SyntaxKind.LastTypeNode:
     case ts.SyntaxKind.LiteralType:
     case ts.SyntaxKind.ArrayType:
+    case ts.SyntaxKind.TypeOperator:
+    case ts.SyntaxKind.IndexedAccessType:
     case ts.SyntaxKind.TypePredicate:
     case ts.SyntaxKind.TypeQuery:
     case ts.SyntaxKind.TupleType:

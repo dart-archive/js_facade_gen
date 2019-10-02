@@ -338,6 +338,17 @@ export class FacadeConverter extends base.TranspilerBase {
       // TODO(jacobr): evaluate supporting this case.
       // let query = <ts.TypeQueryNode>node;
       // name += '/* TypeQuery: typeof ' + base.ident(query.exprName) + ' */';
+    } else if (ts.isTypeOperatorNode(node)) {
+      // TODO(derekx): Investigate the possibility of using index signatures to determine whether
+      // all keys have the same type, in those cases we can replace 'dynamic' with a real type
+      name = 'dynamic';
+      comment = `keyof ${this.generateDartTypeName(node.type)}`;
+    } else if (ts.isIndexedAccessTypeNode(node)) {
+      name = 'dynamic';
+      const objectTypeName = this.generateDartTypeName(node.objectType, options);
+      const indexTypeName = this.generateDartTypeName(node.indexType, addInsideComment(options));
+
+      comment = `${objectTypeName}[${indexTypeName}]`;
     } else if (ts.isTypePredicateNode(node)) {
       name = 'bool';
       comment = base.ident(node.parameterName) + ' is ' +
