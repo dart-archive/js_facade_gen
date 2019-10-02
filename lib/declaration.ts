@@ -223,16 +223,22 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.visitMergingOverloads(decl.members);
 
     if (isPropertyBag) {
+      const propertiesWithValidNames = properties.filter(
+          p => !ts.isStringLiteral(p.name) || base.isValidDartIdentifier(p.name.text));
       this.emit('external factory');
       this.fc.visitTypeName(name);
-      this.emitNoSpace('({');
-      for (let i = 0; i < properties.length; i++) {
-        if (i > 0) this.emitNoSpace(',');
-        let p = properties[i];
-        this.visit(p.type);
-        this.visit(p.name);
+      if (propertiesWithValidNames.length) {
+        this.emitNoSpace('({');
+        for (let i = 0; i < propertiesWithValidNames.length; i++) {
+          if (i > 0) this.emitNoSpace(',');
+          let p = propertiesWithValidNames[i];
+          this.visit(p.type);
+          this.visit(p.name);
+        }
+        this.emitNoSpace('});');
+      } else {
+        this.emitNoSpace('();');
       }
-      this.emitNoSpace('});');
     }
   }
 
@@ -526,12 +532,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         }
       } break;
       case ts.SyntaxKind.StringLiteral: {
-        this.emit('String');
-        this.enterCodeComment();
         let sLit = <ts.LiteralExpression>node;
-        let text = JSON.stringify(sLit.text);
-        this.emit(text);
-        this.exitCodeComment();
+        this.emit(sLit.text);
       } break;
       case ts.SyntaxKind.CallSignature: {
         let fn = <ts.SignatureDeclaration>node;
@@ -773,24 +775,33 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
    */
   private visitProperty(
       decl: ts.PropertyDeclaration|ts.ParameterDeclaration, isParameter?: boolean) {
+    const hasValidName =
+        !ts.isStringLiteral(decl.name) || base.isValidDartIdentifier(decl.name.text);
     const isStatic = base.isStatic(decl);
-    this.emit('external');
-    if (isStatic) this.emit('static');
-    this.visit(decl.type);
-    this.emit('get');
-    this.visitName(decl.name);
-    this.emitNoSpace(';');
 
-    if (!base.isReadonly(decl)) {
+    // TODO(derekx): Properties with names that contain special characters are currently ignored by
+    // commenting them out. Determine a way to rename these properties in the future.
+    this.maybeWrapInCodeComment({shouldWrap: !hasValidName, newLine: true}, () => {
       this.emit('external');
       if (isStatic) this.emit('static');
-      this.emit('set');
-      this.visitName(decl.name);
-      this.emitNoSpace('(');
       this.visit(decl.type);
-      this.emit('v');
-      this.emitNoSpace(')');
+      this.emit('get');
+      this.visitName(decl.name);
       this.emitNoSpace(';');
+    });
+
+    if (!base.isReadonly(decl)) {
+      this.maybeWrapInCodeComment({shouldWrap: !hasValidName, newLine: true}, () => {
+        this.emit('external');
+        if (isStatic) this.emit('static');
+        this.emit('set');
+        this.visitName(decl.name);
+        this.emitNoSpace('(');
+        this.visit(decl.type);
+        this.emit('v');
+        this.emitNoSpace(')');
+        this.emitNoSpace(';');
+      });
     }
   }
 

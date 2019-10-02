@@ -96,6 +96,11 @@ export function ident(n: ts.Node): string {
   return null;
 }
 
+export function isValidDartIdentifier(text: string) {
+  const validIdentifierRegExp = new RegExp('^[^0-9_][a-zA-Z0-9_$]*$');
+  return validIdentifierRegExp.test(text);
+}
+
 export function isFunctionTypedefLikeInterface(ifDecl: ts.InterfaceDeclaration): boolean {
   return ifDecl.members && ifDecl.members.length === 1 &&
       ts.isCallSignatureDeclaration(ifDecl.members[0]);
@@ -366,6 +371,18 @@ export class TranspilerBase {
   }
   exitCodeComment() {
     return this.transpiler.exitCodeComment();
+  }
+  maybeWrapInCodeComment({shouldWrap = true, newLine = false}, emit: () => void): void {
+    if (shouldWrap) {
+      this.enterCodeComment();
+    }
+    emit();
+    if (shouldWrap) {
+      this.exitCodeComment();
+    }
+    if (newLine) {
+      this.emit('\n');
+    }
   }
 
   enterTypeArguments() {
