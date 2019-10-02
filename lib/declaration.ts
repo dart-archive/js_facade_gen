@@ -781,7 +781,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
     // TODO(derekx): Properties with names that contain special characters are currently ignored by
     // commenting them out. Determine a way to rename these properties in the future.
-    this.maybeWrapInCodeComment(/* shouldWrap */ !hasValidName, /* newLine */ true, () => {
+    this.maybeWrapInCodeComment({shouldWrap: !hasValidName, newLine: true}, () => {
       this.emit('external');
       if (isStatic) this.emit('static');
       this.visit(decl.type);
@@ -791,7 +791,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     });
 
     if (!base.isReadonly(decl)) {
-      this.maybeWrapInCodeComment(/* shouldWrap */ !hasValidName, /* newLine */ true, () => {
+      this.maybeWrapInCodeComment({shouldWrap: !hasValidName, newLine: true}, () => {
         this.emit('external');
         if (isStatic) this.emit('static');
         this.emit('set');

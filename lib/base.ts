@@ -372,7 +372,7 @@ export class TranspilerBase {
   exitCodeComment() {
     return this.transpiler.exitCodeComment();
   }
-  maybeWrapInCodeComment(shouldWrap = true, newLine = false, emit: () => void): void {
+  maybeWrapInCodeComment({shouldWrap = true, newLine = false}, emit: () => void): void {
     if (shouldWrap) {
       this.enterCodeComment();
     }
