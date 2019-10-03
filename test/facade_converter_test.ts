@@ -44,7 +44,34 @@ external HttpRequest get xhr;`);
         expectTranslate('const n: Node', generateHTMLOpts).to.equal(`@JS()
 external Node get n;`);
 
-        expectTranslate('const xhr: XMLHttpRequest', generateHTMLOpts).to.equal(`@JS()
+        expectTranslate(
+            `interface XMLHttpRequest {
+              readonly readyState: number;
+              readonly response: any;
+              readonly responseText: string;
+              readonly DONE: number;
+              readonly HEADERS_RECEIVED: number;
+              readonly LOADING: number;
+              readonly OPENED: number;
+              readonly UNSENT: number;
+            }
+        
+            const xhr: XMLHttpRequest`,
+            generateHTMLOpts)
+            .to.equal(`@anonymous
+@JS()
+abstract class XMLHttpRequest {
+  external num get readyState;
+  external dynamic get response;
+  external String get responseText;
+  external num get DONE;
+  external num get HEADERS_RECEIVED;
+  external num get LOADING;
+  external num get OPENED;
+  external num get UNSENT;
+}
+
+@JS()
 external XMLHttpRequest get xhr;`);
       });
 
