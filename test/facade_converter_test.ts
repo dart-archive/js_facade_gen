@@ -26,37 +26,79 @@ function expectWithTypes(str: string) {
 
 describe('type based translation', () => {
   describe('Dart type substitution', () => {
-    it('finds registered substitutions', () => {
-      expectWithTypes('const n: Node;').to.equal(`import "dart:html" show Node;
+    describe('finds registered substitutions', () => {
+      it('for dart:html types by default', () => {
+        expectWithTypes('const n: Node;').to.equal(`import "dart:html" show Node;
 
 @JS()
 external Node get n;`);
-      expectWithTypes('const xhr: XMLHttpRequest;').to.equal(`import "dart:html" show HttpRequest;
+
+        expectWithTypes('const xhr: XMLHttpRequest;').to.equal(`import "dart:html" show HttpRequest;
 
 @JS()
 external HttpRequest get xhr;`);
-      expectWithTypes('const intArray: Uint8Array;')
-          .to.equal(`import "dart:typed_data" show Uint8List;
+      });
+
+      it('but does not import dart:html types when the flag is set', () => {
+        const generateHTMLOpts = Object.assign({}, COMPILE_OPTS, {generateHTML: true});
+        expectTranslate('const n: Node', generateHTMLOpts).to.equal(`@JS()
+external Node get n;`);
+
+        expectTranslate(
+            `interface XMLHttpRequest {
+              readonly readyState: number;
+              readonly response: any;
+              readonly responseText: string;
+              readonly DONE: number;
+              readonly HEADERS_RECEIVED: number;
+              readonly LOADING: number;
+              readonly OPENED: number;
+              readonly UNSENT: number;
+            }
+        
+            const xhr: XMLHttpRequest`,
+            generateHTMLOpts)
+            .to.equal(`@anonymous
+@JS()
+abstract class XMLHttpRequest {
+  external num get readyState;
+  external dynamic get response;
+  external String get responseText;
+  external num get DONE;
+  external num get HEADERS_RECEIVED;
+  external num get LOADING;
+  external num get OPENED;
+  external num get UNSENT;
+}
+
+@JS()
+external XMLHttpRequest get xhr;`);
+      });
+
+      it('finds other registered type substitutions', () => {
+        expectWithTypes('const intArray: Uint8Array;')
+            .to.equal(`import "dart:typed_data" show Uint8List;
 
 @JS()
 external Uint8List get intArray;`);
-      expectWithTypes('const buff: ArrayBuffer;')
-          .to.equal(`import "dart:typed_data" show ByteBuffer;
+        expectWithTypes('const buff: ArrayBuffer;')
+            .to.equal(`import "dart:typed_data" show ByteBuffer;
 
 @JS()
 external ByteBuffer get buff;`);
 
-      expectWithTypes('const n: Number;').to.equal(`@JS()
+        expectWithTypes('const n: Number;').to.equal(`@JS()
 external num get n;`);
 
-      expectWithTypes('const s: String;').to.equal(`@JS()
+        expectWithTypes('const s: String;').to.equal(`@JS()
 external String get s;`);
 
-      expectWithTypes('const s: string;').to.equal(`@JS()
+        expectWithTypes('const s: string;').to.equal(`@JS()
 external String get s;`);
 
-      expectWithTypes('const b: Boolean;').to.equal(`@JS()
+        expectWithTypes('const b: Boolean;').to.equal(`@JS()
 external bool get b;`);
+      });
     });
 
     it('allows undeclared types', () => {

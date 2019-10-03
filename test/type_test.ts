@@ -96,6 +96,47 @@ external String Function(String) get x;
 @JS()
 external set x(String Function(String) v);`);
   });
+
+  describe('TypeScript utility types and other mapped types', () => {
+    it('emits X in place of Partial<X> since all Dart types are currently nullable', () => {
+      expectTranslate('interface X { a: number; } declare const x: Partial<X>;')
+          .to.equal(`@anonymous
+@JS()
+abstract class X {
+  external num get a;
+  external set a(num v);
+  external factory X({num a});
+}
+
+@JS()
+external X/*=Partial<X>*/ get x;`);
+    });
+
+    it('treats other mapped types as dynamic', () => {
+      expectTranslate(`interface Todo {
+        task: string;
+      }
+    
+      type ReadonlyTodo = {
+        readonly[P in keyof Todo]: Todo[P];
+      }
+      
+      declare const todo: ReadonlyTodo;`)
+          .to.equal(`@anonymous
+@JS()
+abstract class Todo {
+  external String get task;
+  external set task(String v);
+  external factory Todo({String task});
+}
+
+/*type ReadonlyTodo = {
+        readonly[P in keyof Todo]: Todo[P];
+      }*/
+@JS()
+external dynamic/*=ReadonlyTodo*/ get todo;`);
+    });
+  });
 });
 
 describe('type arguments', () => {

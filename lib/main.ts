@@ -41,6 +41,10 @@ export interface TranspilerOptions {
    * Sets a root path to look for typings used by the facade converter.
    */
   typingsRoot?: string;
+  /**
+   * Generate browser API facades instead of importing them from dart:html.
+   */
+  generateHTML?: boolean;
 
   /**
    * Experimental JS Interop specific option to promote properties with function
@@ -93,7 +97,7 @@ export class Transpiler {
 
   constructor(private options: TranspilerOptions) {
     this.options = this.options || {};
-    this.fc = new FacadeConverter(this, options.typingsRoot);
+    this.fc = new FacadeConverter(this, options.typingsRoot, options.generateHTML);
     this.declarationTranspiler = new DeclarationTranspiler(
         this, this.fc, options.enforceUnderscoreConventions, options.promoteFunctionLikeMembers);
     this.transpilers = [
