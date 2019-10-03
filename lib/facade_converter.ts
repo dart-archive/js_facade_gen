@@ -230,13 +230,21 @@ export class FacadeConverter extends base.TranspilerBase {
   private genericMethodDeclDepth = 0;
   private nameRewriter: NameRewriter;
 
-  constructor(transpiler: Transpiler, typingsRoot?: string) {
+  constructor(transpiler: Transpiler, typingsRoot?: string, private generateHTML?: boolean) {
     super(transpiler);
     typingsRoot = typingsRoot || '';
     this.nameRewriter = new NameRewriter(this);
     this.extractPropertyNames(TS_TO_DART_TYPENAMES, this.candidateTypes);
     // Remove this line if decide to support generating code that avoids dart:html.
-    DART_LIBRARIES_FOR_BROWSER_TYPES.forEach((value, key) => this.candidateTypes.add(key));
+    DART_LIBRARIES_FOR_BROWSER_TYPES.forEach((value, key) => {
+      if (this.generateHTML && value === 'dart:html') {
+        // We have to delete names of dart:html types that have already been added to candidateTypes
+        // by the extractPropertyNames(TS_TO_DART_TYPENAMES, this.candidateTypes) line above
+        this.candidateTypes.delete(key);
+      } else {
+        this.candidateTypes.add(key);
+      }
+    });
 
     this.typingsRootRegex = new RegExp('^' + typingsRoot.replace('.', '\\.'));
   }
