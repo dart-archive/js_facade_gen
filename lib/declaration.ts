@@ -566,12 +566,15 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         } else {
           this.enterCodeComment();
           if (ts.isMappedTypeNode(alias.type)) {
+            this.emitNoSpace('\n');
             this.emit(
-                'Warning: Mapped types are not supported in Dart. Uses of this type will be replaced by dynamic.\n');
+                'Warning: Mapped types are not supported in Dart. Uses of this type will be replaced by dynamic.');
+            this.emitNoSpace('\n');
           }
           this.emit(alias.getText());
+          this.emitNoSpace('\n');
           this.exitCodeComment();
-          this.emit('\n');
+          this.emitNoSpace('\n');
         }
         // We ignore other type alias declarations as Dart doesn't have a corresponding feature yet.
       } break;

@@ -580,8 +580,13 @@ class Output {
     if (!result.error) {
       code = result.code;
     }
-    code = code.trim();
-    this.emitNoSpace(code);
+    const trimmed = code.trim();
+    const isMultilineComment = trimmed.indexOf('\n') !== -1;
+    if (isMultilineComment) {
+      this.emitNoSpace(code);
+    } else {
+      this.emitNoSpace(trimmed);
+    }
     this.emitNoSpace('*/');
 
     // Don't really need an exact column, just need to track

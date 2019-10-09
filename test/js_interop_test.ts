@@ -936,7 +936,8 @@ function addEventListener(type: string, listener: (this: Element, event: Event) 
 
 /*external addEventListener('load' type, void listener(ImageElement JS$this, Event event));*/
 /*external addEventListener(
-    String type, void listener(Element JS$this, Event event));*/
+    String type, void listener(Element JS$this, Event event));
+*/
 @JS()
 external addEventListener(
     String /*'load'|String*/ type, void listener(/*Element this*/ Event event));`);
