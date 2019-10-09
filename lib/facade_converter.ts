@@ -358,6 +358,24 @@ export class FacadeConverter extends base.TranspilerBase {
       const indexTypeName = this.generateDartTypeName(node.indexType, addInsideComment(options));
 
       comment = `${objectTypeName}[${indexTypeName}]`;
+    } else if (ts.isMappedTypeNode(node)) {
+      name = 'dynamic';
+      if (ts.isTypeAliasDeclaration(node.parent)) {
+        // MappedTypeNodes don't contain information about the name or type arguments that were
+        // passed to the alias, so we have to get that information from the parent
+        const parent = node.parent;
+        comment = parent.name.getText();
+        if (parent.typeParameters && options.resolvedTypeArguments) {
+          comment += '<';
+          const resolvedParameters = parent.typeParameters.map(
+              param => this.generateDartTypeName(
+                  options.resolvedTypeArguments.get(base.ident(param.name)), options));
+          for (const resolvedParam of resolvedParameters) {
+            comment += resolvedParam;
+          }
+          comment += '>';
+        }
+      }
     } else if (ts.isTypePredicateNode(node)) {
       name = 'bool';
       comment = base.ident(node.parameterName) + ' is ' +
@@ -387,7 +405,26 @@ export class FacadeConverter extends base.TranspilerBase {
     } else if (ts.isTypePredicateNode(node)) {
       return this.generateDartTypeName(node.type, options);
     } else if (ts.isTypeReferenceNode(node)) {
-      name = this.generateDartName(node.typeName, setTypeArguments(options, node.typeArguments));
+      // First, check for certain TypeScript utility types and handle them manually as continuing to
+      // call generateDartType will try to resolve a type alias that uses the mapped type feature,
+      // which doesn't have a Dart equivalent and will become dynamic
+      // https://www.typescriptlang.org/docs/handbook/utility-types.html
+      const type = node.typeName.getText();
+      switch (type) {
+        case 'Partial':
+          // Partial<X> is currently the same as X since all types are nullable in Dart
+          name = this.generateDartTypeName(node.typeArguments[0]);
+          comment = node.typeName.getText() + '<' +
+              this.generateTypeList(node.typeArguments, addInsideComment(options)) + '>';
+          break;
+        case 'Record':
+          // TODO(derekx): It should be possible to generate a Readonly version of a class by
+          // handling it in the same way as other readonly types. That is, emitting another class
+          // like JS$ReadonlyX whose members don't have setters.
+        default:
+          name =
+              this.generateDartName(node.typeName, setTypeArguments(options, node.typeArguments));
+      }
     } else if (ts.isTypeLiteralNode(node)) {
       let members = node.members;
       if (members.length === 1 && ts.isIndexSignatureDeclaration(members[0])) {

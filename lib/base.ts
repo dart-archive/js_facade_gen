@@ -239,6 +239,7 @@ export function isTypeNode(node: ts.Node): boolean {
     case ts.SyntaxKind.ArrayType:
     case ts.SyntaxKind.TypeOperator:
     case ts.SyntaxKind.IndexedAccessType:
+    case ts.SyntaxKind.MappedType:
     case ts.SyntaxKind.TypePredicate:
     case ts.SyntaxKind.TypeQuery:
     case ts.SyntaxKind.TupleType:
@@ -332,7 +333,6 @@ export function formatType(s: string, comment: string, options: TypeDisplayOptio
       let expectedStubIndex = result.code.length - stubToMakeTypeValidStatement.length;
       if (result.code.lastIndexOf(stubToMakeTypeValidStatement) === expectedStubIndex) {
         comment = result.code.substring(0, expectedStubIndex).trim();
-        sb += '=';
       }
     }
     sb += comment;

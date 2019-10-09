@@ -266,7 +266,7 @@ class X {
 class X<T> {
   // @Ignore
   X.fakeConstructor$();
-  external static X<dynamic/*=T*/ > Z/*<T>*/();
+  external static X<dynamic /*T*/ > Z/*<T>*/();
 }`);
       expectTranslate('class X<T> { Z(): X<T> {} }').to.equal(`@JS()
 class X<T> {
@@ -288,7 +288,7 @@ class X {
   /*external T createElement<T>('img' tagName);*/
   /*external T createElement<T>('video' tagName);*/
   /*external T createElement<T>(String tagName);*/
-  external dynamic/*=T*/ createElement/*<T>*/(
+  external dynamic /*T*/ createElement/*<T>*/(
       String /*'img'|'video'|String*/ tagName);
 }`);
 
@@ -322,7 +322,7 @@ class X {
   /*external T createElement<T extends ImageElement>('img' tagName);*/
   /*external T createElement<T extends VideoElement>('video' tagName);*/
   /*external T createElement<T extends Element>(String tagName);*/
-  external dynamic/*=T*/ createElement/*<T>*/(
+  external dynamic /*T*/ createElement/*<T>*/(
       String /*'img'|'video'|String*/ tagName);
 }`);
 
@@ -936,7 +936,8 @@ function addEventListener(type: string, listener: (this: Element, event: Event) 
 
 /*external addEventListener('load' type, void listener(ImageElement JS$this, Event event));*/
 /*external addEventListener(
-    String type, void listener(Element JS$this, Event event));*/
+    String type, void listener(Element JS$this, Event event));
+*/
 @JS()
 external addEventListener(
     String /*'load'|String*/ type, void listener(/*Element this*/ Event event));`);

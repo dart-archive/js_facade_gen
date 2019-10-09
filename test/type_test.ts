@@ -96,6 +96,50 @@ external String Function(String) get x;
 @JS()
 external set x(String Function(String) v);`);
   });
+
+  describe('TypeScript utility types and other mapped types', () => {
+    it('emits X in place of Partial<X> since all Dart types are currently nullable', () => {
+      expectTranslate('interface X { a: number; } declare const x: Partial<X>;')
+          .to.equal(`@anonymous
+@JS()
+abstract class X {
+  external num get a;
+  external set a(num v);
+  external factory X({num a});
+}
+
+@JS()
+external X /*Partial<X>*/ get x;`);
+    });
+
+    it('treats other mapped types as dynamic', () => {
+      expectTranslate(`interface Todo {
+        task: string;
+      }
+    
+      type ReadonlyTodo = {
+        readonly[P in keyof Todo]: Todo[P];
+      }
+      
+      declare const todo: ReadonlyTodo;`)
+          .to.equal(`@anonymous
+@JS()
+abstract class Todo {
+  external String get task;
+  external set task(String v);
+  external factory Todo({String task});
+}
+
+/*
+ Warning: Mapped types are not supported in Dart. Uses of this type will be replaced by dynamic.
+ type ReadonlyTodo = {
+        readonly[P in keyof Todo]: Todo[P];
+      }
+*/
+@JS()
+external dynamic /*ReadonlyTodo*/ get todo;`);
+    });
+  });
 });
 
 describe('type arguments', () => {
@@ -239,7 +283,7 @@ external void dispatchSimple(SimpleValueFn<String, num> callback);`);
 `).to.equal(`/*export type Triangle<G> = [G, G, G];*/
 /*export type ListOfLists<G> = [G[]];*/
 @JS()
-external List<List<dynamic/*=T*/ > /*Tuple of <T,T,T>*/ > triangles/*<T>*/();`);
+external List<List<dynamic /*T*/ > /*Tuple of <T,T,T>*/ > triangles/*<T>*/();`);
   });
 
   it('supports the keyof operator and the indexed access operator', () => {
@@ -257,6 +301,6 @@ abstract class A {
 
 @JS()
 external bool f/*<K extends keyof A>*/(
-    dynamic/*=K*/ first, dynamic /*A[K]*/ second);`);
+    dynamic /*K*/ first, dynamic /*A[K]*/ second);`);
   });
 });
