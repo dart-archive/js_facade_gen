@@ -109,7 +109,7 @@ abstract class X {
 }
 
 @JS()
-external X/*=Partial<X>*/ get x;`);
+external X /*Partial<X>*/ get x;`);
     });
 
     it('treats other mapped types as dynamic', () => {
@@ -134,7 +134,7 @@ abstract class Todo {
         readonly[P in keyof Todo]: Todo[P];
       }*/
 @JS()
-external dynamic/*=ReadonlyTodo*/ get todo;`);
+external dynamic /*ReadonlyTodo*/ get todo;`);
     });
   });
 });
@@ -280,7 +280,7 @@ external void dispatchSimple(SimpleValueFn<String, num> callback);`);
 `).to.equal(`/*export type Triangle<G> = [G, G, G];*/
 /*export type ListOfLists<G> = [G[]];*/
 @JS()
-external List<List<dynamic/*=T*/ > /*Tuple of <T,T,T>*/ > triangles/*<T>*/();`);
+external List<List<dynamic /*T*/ > /*Tuple of <T,T,T>*/ > triangles/*<T>*/();`);
   });
 
   it('supports the keyof operator and the indexed access operator', () => {
@@ -298,6 +298,6 @@ abstract class A {
 
 @JS()
 external bool f/*<K extends keyof A>*/(
-    dynamic/*=K*/ first, dynamic /*A[K]*/ second);`);
+    dynamic /*K*/ first, dynamic /*A[K]*/ second);`);
   });
 });

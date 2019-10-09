@@ -44,7 +44,7 @@ external f(D fn(C a(B b)));`);
   });
   it('supports generic-typed function parameters', () => {
     expectTranslate('function f<T, U>(fn: (a: T, b: U) => T) {}').to.equal(`@JS()
-external f/*<T, U>*/(dynamic/*=T*/ fn(dynamic/*=T*/ a, dynamic/*=U*/ b));`);
+external f/*<T, U>*/(dynamic /*T*/ fn(dynamic /*T*/ a, dynamic /*U*/ b));`);
   });
   it('translates functions taking rest parameters to untyped Function', () => {
     expectTranslate('function f(fn: (...a: string[]) => number) {}').to.equal(`@JS()
@@ -98,14 +98,14 @@ x({String a, num b, c}) {
 describe('generic functions', () => {
   it('supports generic types', () => {
     expectTranslate('function sort<T, U>(xs: T[]): T[] { return xs; }').to.equal(`@JS()
-external List<dynamic/*=T*/ > sort/*<T, U>*/(List<dynamic/*=T*/ > xs);`);
+external List<dynamic /*T*/ > sort/*<T, U>*/(List<dynamic /*T*/ > xs);`);
   });
   it('replaces type usage sites, but not idents', () => {
     expectTranslate(`function wobble<T, U>(u: U): T { }`).to.equal(`@JS()
-external dynamic/*=T*/ wobble/*<T, U>*/(dynamic/*=U*/ u);`);
+external dynamic /*T*/ wobble/*<T, U>*/(dynamic /*U*/ u);`);
   });
   it('translates generic calls', () => {
     expectTranslate(`function wobble<T>(foo: T): T { }`).to.equal(`@JS()
-external dynamic/*=T*/ wobble/*<T>*/(dynamic/*=T*/ foo);`);
+external dynamic /*T*/ wobble/*<T>*/(dynamic /*T*/ foo);`);
   });
 });

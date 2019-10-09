@@ -333,7 +333,6 @@ export function formatType(s: string, comment: string, options: TypeDisplayOptio
       let expectedStubIndex = result.code.length - stubToMakeTypeValidStatement.length;
       if (result.code.lastIndexOf(stubToMakeTypeValidStatement) === expectedStubIndex) {
         comment = result.code.substring(0, expectedStubIndex).trim();
-        sb += '=';
       }
     }
     sb += comment;
