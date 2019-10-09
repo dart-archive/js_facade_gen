@@ -25,16 +25,16 @@ let defaultLibFileName = ts.getDefaultLibFileName(compilerOptions);
 let libSourceFiles: Map<string, ts.SourceFile> = new Map();
 
 export function parseFiles(
-    nameToContent: StringMap, currentRunCompilerOpts: ts.CompilerOptions): ts.Program {
+    nameToContent: StringMap, customCompilerOptions: ts.CompilerOptions): ts.Program {
   let result: string;
-  let compilerHost = ts.createCompilerHost(currentRunCompilerOpts);
+  let compilerHost = ts.createCompilerHost(customCompilerOptions);
   compilerHost.getSourceFile = (sourceName) => {
     let sourcePath = sourceName;
     if (sourcePath === defaultLibFileName) {
-      sourcePath = ts.getDefaultLibFilePath(currentRunCompilerOpts);
+      sourcePath = ts.getDefaultLibFilePath(customCompilerOptions);
     } else if (nameToContent.hasOwnProperty(sourcePath)) {
       return ts.createSourceFile(
-          sourcePath, nameToContent[sourcePath], currentRunCompilerOpts.target, true);
+          sourcePath, nameToContent[sourcePath], customCompilerOptions.target, true);
     } else if (!fs.existsSync(sourcePath)) {
       return undefined;
     }
@@ -44,7 +44,7 @@ export function parseFiles(
       // Cache to avoid excessive test times.
       libSourceFiles.set(
           sourcePath,
-          ts.createSourceFile(sourcePath, contents, currentRunCompilerOpts.target, true));
+          ts.createSourceFile(sourcePath, contents, customCompilerOptions.target, true));
     }
     return libSourceFiles.get(sourcePath);
   };
@@ -62,7 +62,7 @@ export function parseFiles(
 
   // Create a program from inputs
   let entryPoints = Object.keys(nameToContent);
-  let program: ts.Program = ts.createProgram(entryPoints, currentRunCompilerOpts, compilerHost);
+  let program: ts.Program = ts.createProgram(entryPoints, customCompilerOptions, compilerHost);
   if (program.getSyntacticDiagnostics().length > 0) {
     // Throw first error.
     let first = program.getSyntacticDiagnostics()[0];
@@ -77,10 +77,6 @@ export function translateSources(contents: Input, options?: main.TranspilerOptio
   options = options || {};
   // Default to quick stack traces.
   if (!options.hasOwnProperty('failFast')) options.failFast = true;
-  const currentRunCompilerOpts = Object.assign({}, compilerOptions);
-  if (options.generateHTML) {
-    currentRunCompilerOpts.lib = ['lib.es2015.d.ts', 'lib.scripthost.d.ts'];
-  }
 
   let namesToContent: StringMap;
   if (typeof contents === 'string') {
@@ -91,7 +87,7 @@ export function translateSources(contents: Input, options?: main.TranspilerOptio
   }
   options.enforceUnderscoreConventions = true;
   let transpiler = new main.Transpiler(options);
-  let program = parseFiles(namesToContent, currentRunCompilerOpts);
+  let program = parseFiles(namesToContent, transpiler.getCompilerOptions());
   return transpiler.translateProgram(program);
 }
 

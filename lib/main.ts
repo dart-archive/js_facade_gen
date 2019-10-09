@@ -192,7 +192,7 @@ export class Transpiler {
     return paths;
   }
 
-  private getCompilerOptions() {
+  getCompilerOptions() {
     let opts: ts.CompilerOptions = {};
     for (let k of Object.keys(COMPILER_OPTIONS)) opts[k] = COMPILER_OPTIONS[k];
     opts.rootDir = this.options.basePath;
