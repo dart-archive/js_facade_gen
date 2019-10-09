@@ -130,7 +130,8 @@ abstract class Todo {
   external factory Todo({String task});
 }
 
-/*type ReadonlyTodo = {
+/*Warning: Mapped types are not supported in Dart. Uses of this type will be replaced by dynamic.
+ type ReadonlyTodo = {
         readonly[P in keyof Todo]: Todo[P];
       }*/
 @JS()

@@ -565,6 +565,10 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
               base.ident(alias.name), type as ts.FunctionTypeNode, alias.typeParameters);
         } else {
           this.enterCodeComment();
+          if (ts.isMappedTypeNode(alias.type)) {
+            this.emit(
+                'Warning: Mapped types are not supported in Dart. Uses of this type will be replaced by dynamic.\n');
+          }
           this.emit(alias.getText());
           this.exitCodeComment();
           this.emit('\n');
