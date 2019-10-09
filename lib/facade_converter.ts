@@ -474,10 +474,17 @@ export class FacadeConverter extends base.TranspilerBase {
           '<' + this.generateDartTypeName(node.elementType, addInsideTypeArgument(options)) + '>';
     } else if (node.kind === ts.SyntaxKind.NumberKeyword) {
       name = 'num';
-    } else if (node.kind === ts.SyntaxKind.LiteralType) {
-      if (ts.isLiteralTypeNode(node) && ts.isLiteralExpression(node.literal)) {
-        comment = `'${node.literal.text}'`;
+    } else if (ts.isLiteralTypeNode(node)) {
+      const literal = node.literal;
+      if (ts.isLiteralExpression(literal)) {
+        comment = `'${literal.text}'`;
         name = 'String';
+      } else if (literal.kind === ts.SyntaxKind.TrueKeyword) {
+        name = 'bool';
+        comment = 'true';
+      } else if (literal.kind === ts.SyntaxKind.FalseKeyword) {
+        name = 'bool';
+        comment = 'false';
       }
     } else if (ts.isStringLiteral(node) || node.kind === ts.SyntaxKind.StringKeyword) {
       name = 'String';

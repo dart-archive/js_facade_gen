@@ -31,6 +31,12 @@ abstract class Foo {
   external Foo bar();
 }`);
   });
+  it('supports true and false return types', () => {
+    expectTranslate('export function f(): true;').to.equal(`@JS()
+external bool /*true*/ f();`);
+    expectTranslate('export function g(): false;').to.equal(`@JS()
+external bool /*false*/ g();`);
+  });
 
   it('comment type literals', () => {
     expectTranslate('var x: {x: string, y: number};').to.equal(`@JS()
