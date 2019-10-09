@@ -496,6 +496,31 @@ abstract class XStatic {
   external foo();
 }`);
   });
+
+  // If the lib.dom.d.ts file is compiled, it creates conflicting interface definitions which causes
+  // a problem for variable declarations that we have merged into classes. The main problem was that
+  // when the declaration transpiler performed the notSimpleBagOfProperties check, it was checking
+  // the lib.dom.d.ts definition of the interface, which made it think the class didn't have a
+  // constructor defined when in reality it did.
+  it('does not compile DOM library files when the --generate-html flag is set', () => {
+    const generateHTMLOpts = {failFast: true, generateHTML: true};
+    expectTranslate(
+        `declare var AbstractRange: {prototype: AbstractRange; new (): AbstractRange;};
+
+            declare interface AbstractRange {
+              readonly collapsed: boolean;
+              readonly endOffset: number;
+              readonly startOffset: number;
+            }`,
+        generateHTMLOpts)
+        .to.equal(`@JS("AbstractRange")
+abstract class AbstractRange {
+  external bool get collapsed;
+  external num get endOffset;
+  external num get startOffset;
+  external factory AbstractRange();
+}`);
+  });
 });
 
 describe('single call signature interfaces', () => {
