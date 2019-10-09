@@ -24,16 +24,17 @@ let compilerOptions = main.COMPILER_OPTIONS;
 let defaultLibFileName = ts.getDefaultLibFileName(compilerOptions);
 let libSourceFiles: Map<string, ts.SourceFile> = new Map();
 
-export function parseFiles(nameToContent: StringMap): ts.Program {
+export function parseFiles(
+    nameToContent: StringMap, customCompilerOptions: ts.CompilerOptions): ts.Program {
   let result: string;
-  let compilerHost = ts.createCompilerHost(compilerOptions);
+  let compilerHost = ts.createCompilerHost(customCompilerOptions);
   compilerHost.getSourceFile = (sourceName) => {
     let sourcePath = sourceName;
     if (sourcePath === defaultLibFileName) {
-      sourcePath = ts.getDefaultLibFilePath(compilerOptions);
+      sourcePath = ts.getDefaultLibFilePath(customCompilerOptions);
     } else if (nameToContent.hasOwnProperty(sourcePath)) {
       return ts.createSourceFile(
-          sourcePath, nameToContent[sourcePath], compilerOptions.target, true);
+          sourcePath, nameToContent[sourcePath], customCompilerOptions.target, true);
     } else if (!fs.existsSync(sourcePath)) {
       return undefined;
     }
@@ -43,7 +44,7 @@ export function parseFiles(nameToContent: StringMap): ts.Program {
       // Cache to avoid excessive test times.
       libSourceFiles.set(
           sourcePath,
-          ts.createSourceFile(sourcePath, contents, main.COMPILER_OPTIONS.target, true));
+          ts.createSourceFile(sourcePath, contents, customCompilerOptions.target, true));
     }
     return libSourceFiles.get(sourcePath);
   };
@@ -61,7 +62,7 @@ export function parseFiles(nameToContent: StringMap): ts.Program {
 
   // Create a program from inputs
   let entryPoints = Object.keys(nameToContent);
-  let program: ts.Program = ts.createProgram(entryPoints, compilerOptions, compilerHost);
+  let program: ts.Program = ts.createProgram(entryPoints, customCompilerOptions, compilerHost);
   if (program.getSyntacticDiagnostics().length > 0) {
     // Throw first error.
     let first = program.getSyntacticDiagnostics()[0];
@@ -76,6 +77,7 @@ export function translateSources(contents: Input, options?: main.TranspilerOptio
   options = options || {};
   // Default to quick stack traces.
   if (!options.hasOwnProperty('failFast')) options.failFast = true;
+
   let namesToContent: StringMap;
   if (typeof contents === 'string') {
     namesToContent = {};
@@ -85,7 +87,7 @@ export function translateSources(contents: Input, options?: main.TranspilerOptio
   }
   options.enforceUnderscoreConventions = true;
   let transpiler = new main.Transpiler(options);
-  let program = parseFiles(namesToContent);
+  let program = parseFiles(namesToContent, transpiler.getCompilerOptions());
   return transpiler.translateProgram(program);
 }
 

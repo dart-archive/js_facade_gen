@@ -69,6 +69,15 @@ abstract class XMLHttpRequest {
   external num get LOADING;
   external num get OPENED;
   external num get UNSENT;
+  external factory XMLHttpRequest(
+      {num readyState,
+      dynamic response,
+      String responseText,
+      num DONE,
+      num HEADERS_RECEIVED,
+      num LOADING,
+      num OPENED,
+      num UNSENT});
 }
 
 @JS()

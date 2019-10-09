@@ -151,7 +151,7 @@ export class Transpiler {
           let moduleLocation = <ts.StringLiteral>exportDecl.moduleSpecifier;
           let location = moduleLocation.text;
           let resolvedPath = host.resolveModuleNames(
-              [location], f.fileName, undefined, undefined, COMPILER_OPTIONS);
+              [location], f.fileName, undefined, undefined, this.getCompilerOptions());
           resolvedPath.forEach((p) => {
             if (p.isExternalLibraryImport) return;
             let exportedFile = sourceFileMap[p.resolvedFileName];
@@ -192,21 +192,26 @@ export class Transpiler {
     return paths;
   }
 
-  private getCompilerOptions() {
+  getCompilerOptions() {
     let opts: ts.CompilerOptions = {};
     for (let k of Object.keys(COMPILER_OPTIONS)) opts[k] = COMPILER_OPTIONS[k];
     opts.rootDir = this.options.basePath;
+    if (this.options.generateHTML) {
+      // Prevent the TypeScript DOM library files from being compiled
+      opts.lib = ['lib.es2015.d.ts', 'lib.scripthost.d.ts'];
+    }
     return opts;
   }
 
   private createCompilerHost(): ts.CompilerHost {
-    let compilerHost = ts.createCompilerHost(COMPILER_OPTIONS);
-    let defaultLibFileName = ts.getDefaultLibFileName(COMPILER_OPTIONS);
+    const compilerOptions = this.getCompilerOptions();
+    let compilerHost = ts.createCompilerHost(compilerOptions);
+    let defaultLibFileName = ts.getDefaultLibFileName(compilerOptions);
     defaultLibFileName = this.normalizeSlashes(defaultLibFileName);
     compilerHost.getSourceFile = (sourceName) => {
       let sourcePath = sourceName;
       if (sourceName === defaultLibFileName) {
-        sourcePath = ts.getDefaultLibFilePath(COMPILER_OPTIONS);
+        sourcePath = ts.getDefaultLibFilePath(compilerOptions);
       }
       if (!fs.existsSync(sourcePath)) return undefined;
       let contents = fs.readFileSync(sourcePath, 'utf-8');
