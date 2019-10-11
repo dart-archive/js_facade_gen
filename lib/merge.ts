@@ -374,9 +374,28 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
                       if (base.ident(member.name) === 'prototype') {
                         break;
                       }
-                      addModifier(member, ts.createNode(ts.SyntaxKind.StaticKeyword));
-                      member.parent = existing;
-                      Array.prototype.push.call(members, member);
+
+                      // Finds all existing declarations of this property in the inheritance
+                      // hierarchy of this class
+                      const existingDeclarations =
+                          findPropertyInHierarchy(base.ident(member.name), existing, classes);
+
+                      if (existingDeclarations.size) {
+                        // TODO(derekx): For dom.d.ts it makes sense to make all properties that are
+                        // declared on the anonymous types of top level variable declarations
+                        // static, but this may not always be correct
+                        for (const existingDecl of existingDeclarations) {
+                          addModifier(existingDecl, ts.createModifier(ts.SyntaxKind.StaticKeyword));
+                        }
+                      }
+
+                      // If needed, add declaration of property to the interface that we are
+                      // currently handling
+                      if (!findPropertyInClass(base.ident(member.name), existing)) {
+                        addModifier(member, ts.createModifier(ts.SyntaxKind.StaticKeyword));
+                        member.parent = existing;
+                        Array.prototype.push.call(members, member);
+                      }
                       break;
                     case ts.SyntaxKind.IndexSignature:
                       member.parent = existing.parent;
@@ -400,6 +419,37 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
     } else if (ts.isModuleBlock(n)) {
       ts.forEachChild(n, (child) => mergeVariablesIntoClasses(child, classes));
     }
+  }
+
+  function findPropertyInClass(propName: string, classLike: base.ClassLike): ts.ClassElement|
+      undefined {
+    const members = classLike.members as ts.NodeArray<ts.ClassElement>;
+    return members.find((member: ts.ClassElement) => {
+      if (base.ident(member.name) === propName) {
+        return true;
+      }
+    });
+  }
+
+  function findPropertyInHierarchy(
+      propName: string, classLike: base.ClassLike,
+      classes: Map<string, base.ClassLike>): Set<ts.ClassElement> {
+    const propertyDeclarations = new Set<ts.ClassElement>();
+    const declaration = findPropertyInClass(propName, classLike);
+    if (declaration) propertyDeclarations.add(declaration);
+
+    const heritageClauses = classLike.heritageClauses || ts.createNodeArray();
+    for (const clause of heritageClauses) {
+      if (clause.token !== ts.SyntaxKind.ExtendsKeyword) {
+        continue;
+      }
+      const name = base.ident(clause.types[0].expression);
+      const declarationsInAncestors = findPropertyInHierarchy(propName, classes.get(name), classes);
+      if (declarationsInAncestors.size) {
+        declarationsInAncestors.forEach(decl => propertyDeclarations.add(decl));
+      }
+    }
+    return propertyDeclarations;
   }
 
   function removeFromArray(nodes: ts.NodeArray<ts.Node>, v: ts.Node) {

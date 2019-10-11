@@ -521,6 +521,41 @@ abstract class AbstractRange {
   external factory AbstractRange();
 }`);
   });
+
+  it('makes properties of top level variables with anonymous types static', () => {
+    expectTranslate(`
+     declare interface CacheBase {
+      readonly CHECKING: number;
+      readonly DOWNLOADING: number;
+      readonly IDLE: number;
+    }
+    
+    declare interface MyCache extends CacheBase {}
+    
+    declare var MyCache: {
+      prototype: MyCache;
+      new (): MyCache;
+      readonly CHECKING: number;
+      readonly DOWNLOADING: number;
+      readonly IDLE: number;
+    };
+
+     `).to.equal(`@anonymous
+@JS()
+abstract class CacheBase {
+  external static num get CHECKING;
+  external static num get DOWNLOADING;
+  external static num get IDLE;
+}
+
+@JS("MyCache")
+abstract class MyCache implements CacheBase {
+  external factory MyCache();
+  external static num get CHECKING;
+  external static num get DOWNLOADING;
+  external static num get IDLE;
+}`);
+  });
 });
 
 describe('single call signature interfaces', () => {
