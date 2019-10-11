@@ -18,6 +18,11 @@ Dart interop facade file is written to stdout.
 ### Advanced
 `dart_js_facade_gen --destination=<destination-dir> --basePath=<input d.ts file directory> <input d.ts file> <input d.ts file> ...`
 
+#### Flags
+`--destination=<destination-dir>`: Output generated code to destination-dir
+`--generate-html`: Generate facades for dart:html types rather than importing them
+`--explicit-static`: Disables default assumption that properties declared on the anonymous types of top level variable declarations are static
+
 ### Example
 `dart_js_facade_gen --destination=/usr/foo/tmp/chartjs/lib --basePath=/usr/foo/git/DefinitelyTyped/chartjs /usr/foo/git/DefinitelyTyped/chartjs/chart.d.ts`
 
