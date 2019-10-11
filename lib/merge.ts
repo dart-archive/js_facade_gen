@@ -227,7 +227,7 @@ export class MergedTypeParameters {
 /**
  * Normalize a SourceFile
  */
-export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
+export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter, explicitStatic = false) {
   let modules: Map<string, ts.ModuleDeclaration> = new Map();
 
   // Merge top level modules.
@@ -375,24 +375,26 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter) {
                         break;
                       }
 
-                      // Finds all existing declarations of this property in the inheritance
-                      // hierarchy of this class
-                      const existingDeclarations =
-                          findPropertyInHierarchy(base.ident(member.name), existing, classes);
+                      if (!explicitStatic) {
+                        // Finds all existing declarations of this property in the inheritance
+                        // hierarchy of this class
+                        const existingDeclarations =
+                            findPropertyInHierarchy(base.ident(member.name), existing, classes);
 
-                      if (existingDeclarations.size) {
-                        // TODO(derekx): For dom.d.ts it makes sense to make all properties that are
-                        // declared on the anonymous types of top level variable declarations
-                        // static, but this may not always be correct
-                        for (const existingDecl of existingDeclarations) {
-                          addModifier(existingDecl, ts.createModifier(ts.SyntaxKind.StaticKeyword));
+                        if (existingDeclarations.size) {
+                          for (const existingDecl of existingDeclarations) {
+                            addModifier(
+                                existingDecl, ts.createModifier(ts.SyntaxKind.StaticKeyword));
+                          }
                         }
                       }
 
                       // If needed, add declaration of property to the interface that we are
                       // currently handling
                       if (!findPropertyInClass(base.ident(member.name), existing)) {
-                        addModifier(member, ts.createModifier(ts.SyntaxKind.StaticKeyword));
+                        if (!explicitStatic) {
+                          addModifier(member, ts.createModifier(ts.SyntaxKind.StaticKeyword));
+                        }
                         member.parent = existing;
                         Array.prototype.push.call(members, member);
                       }
