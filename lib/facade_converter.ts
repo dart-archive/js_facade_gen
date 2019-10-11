@@ -411,6 +411,11 @@ export class FacadeConverter extends base.TranspilerBase {
       // https://www.typescriptlang.org/docs/handbook/utility-types.html
       const type = node.typeName.getText();
       switch (type) {
+        case 'Function':
+          // We check this case to prevent generating JS$Function for the name; the keyword
+          // Function may be used as a type but not in other cases
+          name = 'Function';
+          break;
         case 'Partial':
           // Partial<X> is currently the same as X since all types are nullable in Dart
           name = this.generateDartTypeName(node.typeArguments[0]);
