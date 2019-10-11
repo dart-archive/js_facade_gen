@@ -45,6 +45,11 @@ export interface TranspilerOptions {
    * Generate browser API facades instead of importing them from dart:html.
    */
   generateHTML?: boolean;
+  /**
+   * Do not assume that all properties declared on the anonymous types of top level variable
+   * declarations are static.
+   */
+  explicitStatic?: boolean;
 
   /**
    * Experimental JS Interop specific option to promote properties with function
@@ -255,7 +260,7 @@ export class Transpiler {
     }
 
     this.lastCommentIdx = -1;
-    merge.normalizeSourceFile(sourceFile, this.fc);
+    merge.normalizeSourceFile(sourceFile, this.fc, this.options.explicitStatic);
     this.pushContext(OutputContext.Default);
     this.visit(sourceFile);
     this.popContext();

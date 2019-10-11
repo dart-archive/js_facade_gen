@@ -4,8 +4,12 @@ const main = require('./build/lib/main.js');
 
 var args = require('minimist')(process.argv.slice(2), {
   base: 'string',
-  boolean: ['semantic-diagnostics', 'generate-html'],
-  alias: {'semantic-diagnostics': 'semanticDiagnostics', 'generate-html': 'generateHTML'}
+  boolean: ['semantic-diagnostics', 'generate-html', 'explicit-static'],
+  alias: {
+    'semantic-diagnostics': 'semanticDiagnostics',
+    'generate-html': 'generateHTML',
+    'explicit-static': 'explicitStatic'
+  }
 });
 try {
   var transpiler = new main.Transpiler(args);

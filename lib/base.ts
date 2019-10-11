@@ -87,6 +87,7 @@ export interface ExtendedInterfaceDeclaration extends ts.InterfaceDeclaration {
 }
 
 export function ident(n: ts.Node): string {
+  if (!n) return null;
   if (ts.isIdentifier(n)) return n.text;
   if (n.kind === ts.SyntaxKind.FirstLiteralToken) return (n as ts.LiteralLikeNode).text;
   if (ts.isQualifiedName(n)) {

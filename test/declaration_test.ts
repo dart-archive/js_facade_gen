@@ -521,6 +521,79 @@ abstract class AbstractRange {
   external factory AbstractRange();
 }`);
   });
+
+  describe('emitting properties of top level variables with anonymous types as static', () => {
+    it('performs this by default', () => {
+      expectTranslate(`
+     declare interface CacheBase {
+      readonly CHECKING: number;
+      readonly DOWNLOADING: number;
+      readonly IDLE: number;
+    }
+    
+    declare interface MyCache extends CacheBase {}
+    
+    declare var MyCache: {
+      prototype: MyCache;
+      new (): MyCache;
+      readonly CHECKING: number;
+      readonly DOWNLOADING: number;
+      readonly IDLE: number;
+    };`).to.equal(`@anonymous
+@JS()
+abstract class CacheBase {
+  external static num get CHECKING;
+  external static num get DOWNLOADING;
+  external static num get IDLE;
+}
+
+@JS("MyCache")
+abstract class MyCache implements CacheBase {
+  external factory MyCache();
+  external static num get CHECKING;
+  external static num get DOWNLOADING;
+  external static num get IDLE;
+}`);
+    });
+
+    it('but not when the --explicit-static flag is set', () => {
+      const explicitStaticOpts = {failFast: true, explicitStatic: true};
+      expectTranslate(
+          `
+     declare interface CacheBase {
+      readonly CHECKING: number;
+      readonly DOWNLOADING: number;
+      readonly IDLE: number;
+    }
+    
+    declare interface MyCache extends CacheBase {}
+    
+    declare var MyCache: {
+      prototype: MyCache;
+      new (): MyCache;
+      readonly CHECKING: number;
+      readonly DOWNLOADING: number;
+      readonly IDLE: number;
+    };`,
+          explicitStaticOpts)
+          .to.equal(`@anonymous
+@JS()
+abstract class CacheBase {
+  external num get CHECKING;
+  external num get DOWNLOADING;
+  external num get IDLE;
+  external factory CacheBase({num CHECKING, num DOWNLOADING, num IDLE});
+}
+
+@JS("MyCache")
+abstract class MyCache implements CacheBase {
+  external factory MyCache();
+  external num get CHECKING;
+  external num get DOWNLOADING;
+  external num get IDLE;
+}`);
+    });
+  });
 });
 
 describe('single call signature interfaces', () => {
