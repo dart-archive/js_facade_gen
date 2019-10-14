@@ -101,6 +101,11 @@ external set x(List<String> v);`);
 external String Function(String) get x;
 @JS()
 external set x(String Function(String) v);`);
+
+    expectTranslate('declare var a: Function').to.equal(`@JS()
+external Function get a;
+@JS()
+external set a(Function v);`);
   });
 
   describe('TypeScript utility types and other mapped types', () => {
