@@ -7,7 +7,6 @@ function getSources(str: string): {[k: string]: string} {
           map(x: number): string { return String(x); }
           static get(m: any, k: string): number { return m[k]; }
         }
-        export class Promise {}
     `,
   };
   srcs[FAKE_MAIN] = str;

@@ -19,8 +19,9 @@ export function isFunctionLikeProperty(
 
 export default class DeclarationTranspiler extends base.TranspilerBase {
   private tc: ts.TypeChecker;
-
   private extendsClass = false;
+  private containsPromises = false;
+  private promiseMethods: ts.FunctionLikeDeclaration[] = [];
 
   static NUM_FAKE_REST_PARAMETERS = 5;
 
@@ -446,7 +447,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
             // instead.
             this.visit(fnType.type);
             this.visit(paramDecl.name);
-            this.visitParameters(fnType.parameters);
+            this.visitParameters(fnType.parameters, {namesOnly: false});
             break;
           }
         }
@@ -500,6 +501,10 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       case ts.SyntaxKind.SourceFile:
         let sourceFile = node as ts.SourceFile;
         this.visitMergingOverloads(sourceFile.statements);
+        if (this.containsPromises) {
+          this.addImport('dart:async', 'Completer');
+          this.emitPromiseToFuture();
+        }
         break;
       case ts.SyntaxKind.ModuleBlock: {
         let block = <ts.ModuleBlock>node;
@@ -540,7 +545,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         this.emit('external');
         this.visit(fn.type);
         this.emit('call');
-        this.visitParameters(fn.parameters);
+        this.visitParameters(fn.parameters, {namesOnly: false});
         this.emitNoSpace(';');
       } break;
       case ts.SyntaxKind.IndexSignature:
@@ -641,7 +646,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         }
         this.visitDeclarationMetadata(ctorDecl);
         this.fc.visitTypeName(classDecl.name);
-        this.visitParameters(ctorDecl.parameters);
+        this.visitParameters(ctorDecl.parameters, {namesOnly: false});
         this.emitNoSpace(';');
         if (isAnonymous) {
           this.exitCodeComment();
@@ -734,6 +739,16 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
     try {
       this.visit(fn.type);
+      if (fn.type && ts.isTypeReferenceNode(fn.type) &&
+          base.ident(fn.type.typeName) === 'Promise') {
+        if (!this.containsPromises) {
+          this.containsPromises = true;
+        }
+        const classDecl = base.getEnclosingClass(fn.type);
+        if (classDecl) {
+          this.promiseMethods.push(fn);
+        }
+      }
       if (accessor) this.emit(accessor);
       let name = fn.name;
       if (name) {
@@ -759,7 +774,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       }
       // Dart does not even allow the parens of an empty param list on getter
       if (accessor !== 'get') {
-        this.visitParameters(fn.parameters);
+        this.visitParameters(fn.parameters, {namesOnly: false});
       } else {
         if (fn.parameters && fn.parameters.length > 0) {
           this.reportError(fn, 'getter should not accept parameters');
@@ -858,7 +873,24 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
                 (<ts.ConstructorDeclaration>ctor).parameters.forEach(synthesizePropertyParam));
 
     this.visitClassBody(decl, name);
-    this.emit('}\n\n');
+    this.emit('}\n');
+    if (this.promiseMethods.length) {
+      this.emit('extension on');
+      this.fc.visitTypeName(name);
+      this.emit('{');
+      for (const declaration of this.promiseMethods) {
+        this.emit('Future');
+        this.emit(`${base.ident(declaration.name)}AsFuture`);
+        this.visitParameters(declaration.parameters, {namesOnly: false});
+        this.emit('{');
+        this.emit(`return _promiseToFuture(this.${base.ident(declaration.name)}`);
+        this.visitParameters(declaration.parameters, {namesOnly: true});
+        this.emit(');}\n');
+      }
+      this.emit('}\n');
+      this.promiseMethods = [];
+    }
+    this.emit('\n');
   }
 
   private visitDeclarationMetadata(decl: ts.Declaration) {
@@ -906,7 +938,24 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       this.exitTypeArguments();
       this.emitNoSpace('>');
     }
-    this.visitParameters(signature.parameters);
+    this.visitParameters(signature.parameters, {namesOnly: false});
     this.emitNoSpace(';');
+  }
+
+  private emitPromiseToFuture() {
+    this.emit(`Future<T> _promiseToFuture<T>(jsPromise) {
+      final completer = Completer<T>();
+    
+      thenSuccessCode(promiseValue) {
+        return completer.complete(promiseValue);
+      }
+      thenErrorCode(promiseError) {
+        return completer.completeError(promiseError);
+      }
+    
+      jsPromise.then(allowInterop(thenSuccessCode), allowInterop(thenErrorCode));
+    
+      return completer.future;
+    }`);
   }
 }

@@ -257,6 +257,39 @@ class X {
   external x();
 }`);
     });
+    it('should emit extension methods to return Futures from methods that return Promises', () => {
+      expectTranslate(`declare interface MyMath {
+        randomInRange(start: number, end: number): Promise<number>;
+      }`).to.equal(`import "dart:async" show Completer;
+
+@anonymous
+@JS()
+abstract class MyMath {
+  external dynamic /*Promise<num>*/ randomInRange(num start, num end);
+}
+
+extension on MyMath {
+  Future randomInRangeAsFuture(num start, num end) {
+    return _promiseToFuture(this.randomInRange(start, end));
+  }
+}
+
+Future<T> _promiseToFuture<T>(jsPromise) {
+  final completer = Completer<T>();
+
+  thenSuccessCode(promiseValue) {
+    return completer.complete(promiseValue);
+  }
+
+  thenErrorCode(promiseError) {
+    return completer.completeError(promiseError);
+  }
+
+  jsPromise.then(allowInterop(thenSuccessCode), allowInterop(thenErrorCode));
+
+  return completer.future;
+}`);
+    });
     it('supports abstract methods', () => {
       expectTranslate('abstract class X { abstract x(); }').to.equal(`@JS()
 abstract class X {
