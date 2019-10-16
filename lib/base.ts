@@ -260,6 +260,10 @@ export function isTypeNode(node: ts.Node): boolean {
   }
 }
 
+export function isPromise(type: ts.TypeNode): boolean {
+  return type && ts.isTypeReferenceNode(type) && ident(type.typeName) === 'Promise';
+}
+
 export function isCallable(decl: ClassLike): boolean {
   let members = decl.members as ReadonlyArray<ts.ClassElement>;
   return members.some((member) => {

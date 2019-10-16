@@ -21,7 +21,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   private tc: ts.TypeChecker;
   private extendsClass = false;
   private containsPromises = false;
-  private promiseMethods: ts.FunctionLikeDeclaration[] = [];
+  private promiseMethods: Set<ts.FunctionLikeDeclaration> = new Set();
 
   static NUM_FAKE_REST_PARAMETERS = 5;
 
@@ -686,6 +686,16 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         break;
       case ts.SyntaxKind.MethodSignature:
         let methodSignatureDecl = <ts.FunctionLikeDeclaration>node;
+        if (base.isPromise(methodSignatureDecl.type)) {
+          if (this.promiseMethods.has(methodSignatureDecl)) {
+            break;
+          }
+          if (!this.containsPromises) {
+            this.containsPromises = true;
+          }
+          this.promiseMethods.add(methodSignatureDecl);
+          break;
+        }
         this.visitDeclarationMetadata(methodSignatureDecl);
         this.visitFunctionLike(methodSignatureDecl);
         break;
@@ -739,16 +749,6 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
     try {
       this.visit(fn.type);
-      if (fn.type && ts.isTypeReferenceNode(fn.type) &&
-          base.ident(fn.type.typeName) === 'Promise') {
-        if (!this.containsPromises) {
-          this.containsPromises = true;
-        }
-        const classDecl = base.getEnclosingClass(fn.type);
-        if (classDecl) {
-          this.promiseMethods.push(fn);
-        }
-      }
       if (accessor) this.emit(accessor);
       let name = fn.name;
       if (name) {
@@ -874,21 +874,9 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
     this.visitClassBody(decl, name);
     this.emit('}\n');
-    if (this.promiseMethods.length) {
-      this.emit('extension on');
-      this.fc.visitTypeName(name);
-      this.emit('{');
-      for (const declaration of this.promiseMethods) {
-        this.emit('Future');
-        this.emit(`${base.ident(declaration.name)}AsFuture`);
-        this.visitParameters(declaration.parameters, {namesOnly: false});
-        this.emit('{');
-        this.emit(`return _promiseToFuture(this.${base.ident(declaration.name)}`);
-        this.visitParameters(declaration.parameters, {namesOnly: true});
-        this.emit(');}\n');
-      }
-      this.emit('}\n');
-      this.promiseMethods = [];
+    if (this.promiseMethods.size) {
+      this.emitMethodsAsExtensions(name, this.promiseMethods);
+      this.promiseMethods.clear();
     }
     this.emit('\n');
   }
@@ -940,6 +928,39 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     }
     this.visitParameters(signature.parameters, {namesOnly: false});
     this.emitNoSpace(';');
+  }
+
+  private emitMethodsAsExtensions(
+      className: ts.Identifier, methods: Set<ts.FunctionLikeDeclaration>) {
+    // Emit private class containing external methods
+    this.emit('@anonymous');
+    this.emit(`@JS('${base.ident(className)}')`);
+    this.emit(`abstract class _`);
+    this.fc.visitTypeName(className);
+    this.emit('{');
+    for (const declaration of methods) {
+      this.visitFunctionLike(declaration);
+    }
+    this.emit('}\n');
+
+    // Emit extensions on public class to expose methods
+    this.emit('extension on');
+    this.fc.visitTypeName(className);
+    this.emit('{');
+    for (const declaration of methods) {
+      if (!base.isPromise(declaration.type)) {
+        continue;
+      }
+      this.emit('Future');
+      this.emit(base.ident(declaration.name));
+      this.visitParameters(declaration.parameters, {namesOnly: false});
+      this.emit('{ return _promiseToFuture((this as _');
+      this.fc.visitTypeName(className);
+      this.emitNoSpace(`).${base.ident(declaration.name)}`);
+      this.visitParameters(declaration.parameters, {namesOnly: true});
+      this.emit(');}\n');
+    }
+    this.emit('}\n');
   }
 
   private emitPromiseToFuture() {

@@ -534,7 +534,8 @@ class Output {
     let buffer = this.insideCodeComment ? this.codeCommentResult : this.result;
     if (buffer.length > 0) {
       let lastChar = buffer.slice(-1);
-      if (lastChar !== ' ' && lastChar !== '(' && lastChar !== '<' && lastChar !== '[') {
+      if (lastChar !== ' ' && lastChar !== '(' && lastChar !== '<' && lastChar !== '[' &&
+          lastChar !== '_') {
         // Avoid emitting a space in obvious cases where a space is not required
         // to make the output slightly prettier in cases where the DartFormatter
         // cannot run such as within a comment where code we emit is not quite

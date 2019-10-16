@@ -264,13 +264,17 @@ class X {
 
 @anonymous
 @JS()
-abstract class MyMath {
-  external dynamic /*Promise<num>*/ randomInRange(num start, num end);
+abstract class MyMath {}
+
+@anonymous
+@JS('MyMath')
+abstract class _MyMath {
+  dynamic /*Promise<num>*/ randomInRange(num start, num end);
 }
 
 extension on MyMath {
-  Future randomInRangeAsFuture(num start, num end) {
-    return _promiseToFuture(this.randomInRange(start, end));
+  Future randomInRange(num start, num end) {
+    return _promiseToFuture((this as _MyMath).randomInRange(start, end));
   }
 }
 
