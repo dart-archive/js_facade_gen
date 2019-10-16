@@ -954,9 +954,13 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       this.emit('Future');
       this.emit(base.ident(declaration.name));
       this.visitParameters(declaration.parameters, {namesOnly: false});
-      this.emit('{ return _promiseToFuture((this as _');
+      this.emit('{');
+      this.emit('final _');
       this.fc.visitTypeName(className);
-      this.emitNoSpace(`).${base.ident(declaration.name)}`);
+      this.emit('t = this as _');
+      this.fc.visitTypeName(className);
+      this.emit(';\n');
+      this.emit(`return _promiseToFuture(t.${base.ident(declaration.name)}`);
       this.visitParameters(declaration.parameters, {namesOnly: true});
       this.emit(');}\n');
     }
