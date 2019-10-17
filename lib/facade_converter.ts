@@ -417,8 +417,7 @@ export class FacadeConverter extends base.TranspilerBase {
           name = 'Function';
           break;
         case 'Promise':
-          name = 'dynamic';
-          comment = base.ident(node.typeName) + '<' +
+          name = base.ident(node.typeName) + '<' +
               this.generateTypeList(node.typeArguments, addInsideComment(options)) + '>';
           break;
         case 'Partial':

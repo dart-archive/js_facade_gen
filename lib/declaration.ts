@@ -503,7 +503,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         this.visitMergingOverloads(sourceFile.statements);
         if (this.containsPromises) {
           this.addImport('dart:async', 'Completer');
-          this.emitPromiseToFuture();
+          this.addImport('package:js/js_util.dart', 'promiseToFuture');
+          this.emit(`@JS() abstract class Promise<T> {}\n`);
         }
         break;
       case ts.SyntaxKind.ModuleBlock: {
@@ -933,7 +934,6 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   private emitMethodsAsExtensions(
       className: ts.Identifier, methods: Set<ts.FunctionLikeDeclaration>) {
     // Emit private class containing external methods
-    this.emit('@anonymous');
     this.emit(`@JS('${base.ident(className)}')`);
     this.emit(`abstract class _`);
     this.fc.visitTypeName(className);
@@ -960,27 +960,10 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       this.emit('t = this as _');
       this.fc.visitTypeName(className);
       this.emit(';\n');
-      this.emit(`return _promiseToFuture(t.${base.ident(declaration.name)}`);
+      this.emit(`return promiseToFuture(t.${base.ident(declaration.name)}`);
       this.visitParameters(declaration.parameters, {namesOnly: true});
       this.emit(');}\n');
     }
     this.emit('}\n');
-  }
-
-  private emitPromiseToFuture() {
-    this.emit(`Future<T> _promiseToFuture<T>(jsPromise) {
-      final completer = Completer<T>();
-    
-      thenSuccessCode(promiseValue) {
-        return completer.complete(promiseValue);
-      }
-      thenErrorCode(promiseError) {
-        return completer.completeError(promiseError);
-      }
-    
-      jsPromise.then(allowInterop(thenSuccessCode), allowInterop(thenErrorCode));
-    
-      return completer.future;
-    }`);
   }
 }

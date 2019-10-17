@@ -261,39 +261,26 @@ class X {
       expectTranslate(`declare interface MyMath {
         randomInRange(start: number, end: number): Promise<number>;
       }`).to.equal(`import "dart:async" show Completer;
+import "package:js/js_util.dart" show promiseToFuture;
 
 @anonymous
 @JS()
 abstract class MyMath {}
 
-@anonymous
 @JS('MyMath')
 abstract class _MyMath {
-  dynamic /*Promise<num>*/ randomInRange(num start, num end);
+  Promise<num> randomInRange(num start, num end);
 }
 
 extension on MyMath {
   Future randomInRange(num start, num end) {
     final _MyMath t = this as _MyMath;
-    return _promiseToFuture(t.randomInRange(start, end));
+    return promiseToFuture(t.randomInRange(start, end));
   }
 }
 
-Future<T> _promiseToFuture<T>(jsPromise) {
-  final completer = Completer<T>();
-
-  thenSuccessCode(promiseValue) {
-    return completer.complete(promiseValue);
-  }
-
-  thenErrorCode(promiseError) {
-    return completer.completeError(promiseError);
-  }
-
-  jsPromise.then(allowInterop(thenSuccessCode), allowInterop(thenErrorCode));
-
-  return completer.future;
-}`);
+@JS()
+abstract class Promise<T> {}`);
     });
     it('supports abstract methods', () => {
       expectTranslate('abstract class X { abstract x(); }').to.equal(`@JS()
