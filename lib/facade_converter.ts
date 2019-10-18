@@ -416,10 +416,6 @@ export class FacadeConverter extends base.TranspilerBase {
           // Function may be used as a type but not in other cases
           name = 'Function';
           break;
-        case 'Promise':
-          name = base.ident(node.typeName) + '<' +
-              this.generateTypeList(node.typeArguments, addInsideComment(options)) + '>';
-          break;
         case 'Partial':
           // Partial<X> is currently the same as X since all types are nullable in Dart
           name = this.generateDartTypeName(node.typeArguments[0]);
