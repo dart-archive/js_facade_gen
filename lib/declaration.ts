@@ -19,8 +19,9 @@ export function isFunctionLikeProperty(
 
 export default class DeclarationTranspiler extends base.TranspilerBase {
   private tc: ts.TypeChecker;
-
   private extendsClass = false;
+  private containsPromises = false;
+  private promiseMethods: Set<ts.FunctionLikeDeclaration> = new Set();
 
   static NUM_FAKE_REST_PARAMETERS = 5;
 
@@ -446,7 +447,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
             // instead.
             this.visit(fnType.type);
             this.visit(paramDecl.name);
-            this.visitParameters(fnType.parameters);
+            this.visitParameters(fnType.parameters, {namesOnly: false});
             break;
           }
         }
@@ -500,6 +501,11 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       case ts.SyntaxKind.SourceFile:
         let sourceFile = node as ts.SourceFile;
         this.visitMergingOverloads(sourceFile.statements);
+        if (this.containsPromises) {
+          this.addImport('dart:async', 'Completer');
+          this.addImport('package:js/js_util.dart', 'promiseToFuture');
+          this.emit(`@JS() abstract class Promise<T> {}\n`);
+        }
         break;
       case ts.SyntaxKind.ModuleBlock: {
         let block = <ts.ModuleBlock>node;
@@ -540,7 +546,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         this.emit('external');
         this.visit(fn.type);
         this.emit('call');
-        this.visitParameters(fn.parameters);
+        this.visitParameters(fn.parameters, {namesOnly: false});
         this.emitNoSpace(';');
       } break;
       case ts.SyntaxKind.IndexSignature:
@@ -641,7 +647,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         }
         this.visitDeclarationMetadata(ctorDecl);
         this.fc.visitTypeName(classDecl.name);
-        this.visitParameters(ctorDecl.parameters);
+        this.visitParameters(ctorDecl.parameters, {namesOnly: false});
         this.emitNoSpace(';');
         if (isAnonymous) {
           this.exitCodeComment();
@@ -681,6 +687,16 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         break;
       case ts.SyntaxKind.MethodSignature:
         let methodSignatureDecl = <ts.FunctionLikeDeclaration>node;
+        if (base.isPromise(methodSignatureDecl.type)) {
+          if (this.promiseMethods.has(methodSignatureDecl)) {
+            break;
+          }
+          if (!this.containsPromises) {
+            this.containsPromises = true;
+          }
+          this.promiseMethods.add(methodSignatureDecl);
+          break;
+        }
         this.visitDeclarationMetadata(methodSignatureDecl);
         this.visitFunctionLike(methodSignatureDecl);
         break;
@@ -759,7 +775,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       }
       // Dart does not even allow the parens of an empty param list on getter
       if (accessor !== 'get') {
-        this.visitParameters(fn.parameters);
+        this.visitParameters(fn.parameters, {namesOnly: false});
       } else {
         if (fn.parameters && fn.parameters.length > 0) {
           this.reportError(fn, 'getter should not accept parameters');
@@ -858,7 +874,12 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
                 (<ts.ConstructorDeclaration>ctor).parameters.forEach(synthesizePropertyParam));
 
     this.visitClassBody(decl, name);
-    this.emit('}\n\n');
+    this.emit('}\n');
+    if (this.promiseMethods.size) {
+      this.emitMethodsAsExtensions(name, this.promiseMethods);
+      this.promiseMethods.clear();
+    }
+    this.emit('\n');
   }
 
   private visitDeclarationMetadata(decl: ts.Declaration) {
@@ -906,7 +927,42 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       this.exitTypeArguments();
       this.emitNoSpace('>');
     }
-    this.visitParameters(signature.parameters);
+    this.visitParameters(signature.parameters, {namesOnly: false});
     this.emitNoSpace(';');
+  }
+
+  private emitMethodsAsExtensions(
+      className: ts.Identifier, methods: Set<ts.FunctionLikeDeclaration>) {
+    // Emit private class containing external methods
+    this.emit(`@JS('${base.ident(className)}')`);
+    this.emit(`abstract class _`);
+    this.fc.visitTypeName(className);
+    this.emit('{');
+    for (const declaration of methods) {
+      this.visitFunctionLike(declaration);
+    }
+    this.emit('}\n');
+
+    // Emit extensions on public class to expose methods
+    this.emit('extension on');
+    this.fc.visitTypeName(className);
+    this.emit('{');
+    for (const declaration of methods) {
+      if (!base.isPromise(declaration.type)) {
+        continue;
+      }
+      this.emit('Future');
+      this.emit(base.ident(declaration.name));
+      this.visitParameters(declaration.parameters, {namesOnly: false});
+      this.emit('{');
+      this.emit('final Object t = this;');
+      this.emit('final _');
+      this.fc.visitTypeName(className);
+      this.emit('tt = t;\n');
+      this.emit(`return promiseToFuture(tt.${base.ident(declaration.name)}`);
+      this.visitParameters(declaration.parameters, {namesOnly: true});
+      this.emit(');}\n');
+    }
+    this.emit('}\n');
   }
 }

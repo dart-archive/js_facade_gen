@@ -260,6 +260,10 @@ export function isTypeNode(node: ts.Node): boolean {
   }
 }
 
+export function isPromise(type: ts.TypeNode): boolean {
+  return type && ts.isTypeReferenceNode(type) && ident(type.typeName) === 'Promise';
+}
+
 export function isCallable(decl: ClassLike): boolean {
   let members = decl.members as ReadonlyArray<ts.ClassElement>;
   return members.some((member) => {
@@ -473,7 +477,7 @@ export class TranspilerBase {
   /**
    * Returns whether any parameters were actually emitted.
    */
-  visitParameterList(nodes: ts.ParameterDeclaration[]): boolean {
+  visitParameterList(nodes: ts.ParameterDeclaration[], namesOnly: boolean): boolean {
     let emittedParameters = false;
     for (let i = 0; i < nodes.length; ++i) {
       let param = nodes[i];
@@ -489,7 +493,11 @@ export class TranspilerBase {
       if (emittedParameters) {
         this.emitNoSpace(',');
       }
-      this.visit(param);
+      if (namesOnly) {
+        this.emit(ident(param.name));
+      } else {
+        this.visit(param);
+      }
       emittedParameters = true;
     }
     return emittedParameters;
@@ -556,7 +564,7 @@ export class TranspilerBase {
     }
   }
 
-  visitParameters(parameters: ts.NodeArray<ts.ParameterDeclaration>) {
+  visitParameters(parameters: ts.NodeArray<ts.ParameterDeclaration>, {namesOnly = false}) {
     this.emitNoSpace('(');
     let firstInitParamIdx = 0;
     for (; firstInitParamIdx < parameters.length; firstInitParamIdx++) {
@@ -572,15 +580,19 @@ export class TranspilerBase {
     let hasValidParameters = false;
     if (firstInitParamIdx !== 0) {
       let requiredParams = parameters.slice(0, firstInitParamIdx);
-      hasValidParameters = this.visitParameterList(requiredParams);
+      hasValidParameters = this.visitParameterList(requiredParams, namesOnly);
     }
 
     if (firstInitParamIdx !== parameters.length) {
       if (hasValidParameters) this.emitNoSpace(',');
       let positionalOptional = parameters.slice(firstInitParamIdx, parameters.length);
-      this.emit('[');
-      this.visitParameterList(positionalOptional);
-      this.emitNoSpace(']');
+      if (!namesOnly) {
+        this.emit('[');
+      }
+      this.visitParameterList(positionalOptional, namesOnly);
+      if (!namesOnly) {
+        this.emitNoSpace(']');
+      }
     }
 
     this.emitNoSpace(')');
