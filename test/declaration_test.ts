@@ -274,8 +274,9 @@ abstract class _MyMath {
 
 extension on MyMath {
   Future randomInRange(num start, num end) {
-    final _MyMath t = this as _MyMath;
-    return promiseToFuture(t.randomInRange(start, end));
+    final Object t = this;
+    final _MyMath tt = t;
+    return promiseToFuture(tt.randomInRange(start, end));
   }
 }
 
