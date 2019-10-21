@@ -954,6 +954,7 @@ const STDLIB_TYPE_REPLACEMENTS = new Map(Object.entries({
 
   'Date': 'DateTime',
   'Array': 'List',
+  'ReadonlyArray': 'List',
   'ArrayBuffer': 'ByteBuffer',
   // 'Promise': 'Future',    // TODO(jacobr): add back once we unify Promise and
   // Future.
