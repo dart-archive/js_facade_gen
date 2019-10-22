@@ -173,6 +173,14 @@ abstract class DSVParsedArray<T> implements List<T> {
 }`);
   });
 
+
+  it('translates readonly array façades', () => {
+    expectWithTypes('declare const a : ReadonlyArray<number>;').to.equal(`@JS()
+external List<num> /*ReadonlyArray<num>*/ get a;`);
+    expectWithTypes('function f() : ReadonlyArray<string> {}').to.equal(`@JS()
+external List<String> /*ReadonlyArray<String>*/ f();`);
+  });
+
   describe('error detection', () => {
     it('supports imports', () => {
       expectWithTypes(`import {X} from "other";\nlet x:X;`).to.equal(`import "other.dart" show X;

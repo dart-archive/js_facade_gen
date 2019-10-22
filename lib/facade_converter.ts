@@ -321,6 +321,9 @@ export class FacadeConverter extends base.TranspilerBase {
       types: ReadonlyArray<ts.TypeNode>, options: TypeDisplayOptions, seperator?: string): string {
     seperator = seperator || ',';
     let that = this;
+    if (!types) {
+      return '';
+    }
     return types
         .map((type) => {
           return that.generateDartTypeName(type, addInsideTypeArgument(options));
@@ -415,6 +418,12 @@ export class FacadeConverter extends base.TranspilerBase {
           // We check this case to prevent generating JS$Function for the name; the keyword
           // Function may be used as a type but not in other cases
           name = 'Function';
+          break;
+        case 'ReadonlyArray':
+          name =
+              this.generateDartName(node.typeName, setTypeArguments(options, node.typeArguments));
+          comment = 'ReadonlyArray<' +
+              this.generateTypeList(node.typeArguments, addInsideComment(options)) + '>';
           break;
         case 'Partial':
           // Partial<X> is currently the same as X since all types are nullable in Dart
