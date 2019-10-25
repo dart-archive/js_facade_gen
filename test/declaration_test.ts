@@ -260,8 +260,7 @@ class X {
     it('should emit extension methods to return Futures from methods that return Promises', () => {
       expectTranslate(`declare interface MyMath {
         randomInRange(start: number, end: number): Promise<number>;
-      }`).to.equal(`import "dart:async" show Completer;
-import "package:js/js_util.dart" show promiseToFuture;
+      }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
 @anonymous
 @JS()
@@ -272,11 +271,34 @@ abstract class _MyMath {
   Promise<num> randomInRange(num start, num end);
 }
 
-extension on MyMath {
+extension MyMathExtensions on MyMath {
   Future randomInRange(num start, num end) {
     final Object t = this;
     final _MyMath tt = t;
     return promiseToFuture(tt.randomInRange(start, end));
+  }
+}
+
+@JS()
+abstract class Promise<T> {}`);
+      expectTranslate(`declare interface X<T> {
+        f(a: T): Promise<T>;
+      }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
+
+@anonymous
+@JS()
+abstract class X<T> {}
+
+@JS('X')
+abstract class _X<T> {
+  Promise<T> f(T a);
+}
+
+extension XExtensions<T> on X<T> {
+  Future f(T a) {
+    final Object t = this;
+    final _X tt = t;
+    return promiseToFuture(tt.f(a));
   }
 }
 

@@ -502,7 +502,6 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         let sourceFile = node as ts.SourceFile;
         this.visitMergingOverloads(sourceFile.statements);
         if (this.containsPromises) {
-          this.addImport('dart:async', 'Completer');
           this.addImport('package:js/js_util.dart', 'promiseToFuture');
           this.emit(`@JS() abstract class Promise<T> {}\n`);
         }
@@ -843,17 +842,11 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       keyword: string, decl: base.ClassLike|ts.TypeLiteralNode, name: ts.Identifier,
       typeParameters: ts.NodeArray<ts.TypeParameterDeclaration>,
       heritageClauses: ts.NodeArray<ts.HeritageClause>) {
+    const visitName = (extension = false) => {
+      this.visitClassLikeName(name, typeParameters, heritageClauses, extension);
+    };
     this.emit(keyword);
-    this.fc.visitTypeName(name);
-    if (typeParameters) {
-      this.emit('<');
-      this.enterTypeArguments();
-      this.visitList(typeParameters);
-      this.exitTypeArguments();
-      this.emit('>');
-    }
-
-    this.visitEachIfPresent(heritageClauses);
+    visitName();
     this.emit('{');
 
     this.maybeEmitFakeConstructors(decl);
@@ -876,10 +869,30 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.visitClassBody(decl, name);
     this.emit('}\n');
     if (this.promiseMethods.size) {
-      this.emitMethodsAsExtensions(name, this.promiseMethods);
+      this.emitMethodsAsExtensions(name, visitName, this.promiseMethods);
       this.promiseMethods.clear();
     }
     this.emit('\n');
+  }
+
+  private visitClassLikeName(
+      name: ts.Identifier, typeParameters: ts.NodeArray<ts.TypeParameterDeclaration>,
+      heritageClauses: ts.NodeArray<ts.HeritageClause>, extension: boolean) {
+    this.fc.visitTypeName(name);
+
+    if (extension) {
+      this.emitNoSpace('Extensions');
+    }
+
+    if (typeParameters) {
+      this.emit('<');
+      this.enterTypeArguments();
+      this.visitList(typeParameters);
+      this.exitTypeArguments();
+      this.emit('>');
+    }
+
+    this.visitEachIfPresent(heritageClauses);
   }
 
   private visitDeclarationMetadata(decl: ts.Declaration) {
@@ -932,11 +945,12 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   }
 
   private emitMethodsAsExtensions(
-      className: ts.Identifier, methods: Set<ts.FunctionLikeDeclaration>) {
+      className: ts.Identifier, visitName: (extension?: boolean) => void,
+      methods: Set<ts.FunctionLikeDeclaration>) {
     // Emit private class containing external methods
     this.emit(`@JS('${base.ident(className)}')`);
     this.emit(`abstract class _`);
-    this.fc.visitTypeName(className);
+    visitName();
     this.emit('{');
     for (const declaration of methods) {
       this.visitFunctionLike(declaration);
@@ -944,8 +958,10 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.emit('}\n');
 
     // Emit extensions on public class to expose methods
-    this.emit('extension on');
-    this.fc.visitTypeName(className);
+    this.emit('extension');
+    visitName(/* extension */ true);
+    this.emit('on');
+    visitName();
     this.emit('{');
     for (const declaration of methods) {
       if (!base.isPromise(declaration.type)) {
