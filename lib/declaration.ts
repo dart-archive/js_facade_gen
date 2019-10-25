@@ -842,8 +842,11 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       keyword: string, decl: base.ClassLike|ts.TypeLiteralNode, name: ts.Identifier,
       typeParameters: ts.NodeArray<ts.TypeParameterDeclaration>,
       heritageClauses: ts.NodeArray<ts.HeritageClause>) {
-    const visitName = (extension = false) => {
-      this.visitClassLikeName(name, typeParameters, heritageClauses, extension);
+    const visitName = () => {
+      this.visitClassLikeName(name, typeParameters, heritageClauses, false);
+    };
+    const visitNameOfExtensions = () => {
+      this.visitClassLikeName(name, typeParameters, heritageClauses, true);
     };
     this.emit(keyword);
     visitName();
@@ -869,7 +872,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.visitClassBody(decl, name);
     this.emit('}\n');
     if (this.promiseMethods.size) {
-      this.emitMethodsAsExtensions(name, visitName, this.promiseMethods);
+      this.emitMethodsAsExtensions(name, visitName, visitNameOfExtensions, this.promiseMethods);
       this.promiseMethods.clear();
     }
     this.emit('\n');
@@ -945,7 +948,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   }
 
   private emitMethodsAsExtensions(
-      className: ts.Identifier, visitName: (extension?: boolean) => void,
+      className: ts.Identifier, visitName: () => void, visitNameOfExtensions: () => void,
       methods: Set<ts.FunctionLikeDeclaration>) {
     // Emit private class containing external methods
     this.emit(`@JS('${base.ident(className)}')`);
@@ -959,7 +962,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
     // Emit extensions on public class to expose methods
     this.emit('extension');
-    visitName(/* extension */ true);
+    visitNameOfExtensions();
     this.emit('on');
     visitName();
     this.emit('{');
@@ -968,6 +971,9 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         continue;
       }
       this.emit('Future');
+      if (ts.isTypeReferenceNode(declaration.type)) {
+        this.maybeVisitTypeArguments(declaration.type);
+      }
       this.emit(base.ident(declaration.name));
       this.visitParameters(declaration.parameters, {namesOnly: false});
       this.emit('{');

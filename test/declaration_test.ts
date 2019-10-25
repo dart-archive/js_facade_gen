@@ -272,7 +272,7 @@ abstract class _MyMath {
 }
 
 extension MyMathExtensions on MyMath {
-  Future randomInRange(num start, num end) {
+  Future<num> randomInRange(num start, num end) {
     final Object t = this;
     final _MyMath tt = t;
     return promiseToFuture(tt.randomInRange(start, end));
@@ -295,7 +295,7 @@ abstract class _X<T> {
 }
 
 extension XExtensions<T> on X<T> {
-  Future f(T a) {
+  Future<T> f(T a) {
     final Object t = this;
     final _X tt = t;
     return promiseToFuture(tt.f(a));
