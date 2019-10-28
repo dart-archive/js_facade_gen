@@ -304,6 +304,41 @@ extension XExtensions<T> on X<T> {
 
 @JS()
 abstract class Promise<T> {}`);
+      expectTranslate(`declare interface Y {
+        a: number;
+      }
+      
+      declare interface Z extends Y {
+        f(): Promise<string>;
+      }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
+
+@anonymous
+@JS()
+abstract class Y {
+  external num get a;
+  external set a(num v);
+  external factory Y({num a});
+}
+
+@anonymous
+@JS()
+abstract class Z implements Y {}
+
+@JS('Z')
+abstract class _Z {
+  Promise<String> f();
+}
+
+extension ZExtensions on Z {
+  Future<String> f() {
+    final Object t = this;
+    final _Z tt = t;
+    return promiseToFuture(tt.f());
+  }
+}
+
+@JS()
+abstract class Promise<T> {}`);
     });
     it('supports abstract methods', () => {
       expectTranslate('abstract class X { abstract x(); }').to.equal(`@JS()

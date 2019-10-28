@@ -842,14 +842,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       keyword: string, decl: base.ClassLike|ts.TypeLiteralNode, name: ts.Identifier,
       typeParameters: ts.NodeArray<ts.TypeParameterDeclaration>,
       heritageClauses: ts.NodeArray<ts.HeritageClause>) {
-    const visitName = () => {
-      this.visitClassLikeName(name, typeParameters, heritageClauses, false);
-    };
-    const visitNameOfExtensions = () => {
-      this.visitClassLikeName(name, typeParameters, heritageClauses, true);
-    };
     this.emit(keyword);
-    visitName();
+    this.visitClassLikeName(name, typeParameters, heritageClauses, false);
     this.emit('{');
 
     this.maybeEmitFakeConstructors(decl);
@@ -872,6 +866,12 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.visitClassBody(decl, name);
     this.emit('}\n');
     if (this.promiseMethods.size) {
+      const visitName = () => {
+        this.visitClassLikeName(name, typeParameters, ts.createNodeArray(), false);
+      };
+      const visitNameOfExtensions = () => {
+        this.visitClassLikeName(name, typeParameters, ts.createNodeArray(), true);
+      };
       this.emitMethodsAsExtensions(name, visitName, visitNameOfExtensions, this.promiseMethods);
       this.promiseMethods.clear();
     }
