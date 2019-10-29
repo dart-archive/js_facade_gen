@@ -457,8 +457,10 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter, expli
   function removeFromArray(nodes: ts.NodeArray<ts.Node>, v: ts.Node) {
     for (let i = 0, len = nodes.length; i < len; ++i) {
       if (nodes[i] === v) {
+        const emptyNode = ts.createNode(ts.SyntaxKind.EmptyStatement);
+        base.copyLocation(nodes[i], emptyNode);
         // Small hack to get around NodeArrays being readonly
-        Array.prototype.splice.call(nodes, i, 1);
+        Array.prototype.splice.call(nodes, i, 1, emptyNode);
         break;
       }
     }

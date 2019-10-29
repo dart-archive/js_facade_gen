@@ -580,6 +580,31 @@ abstract class XStatic {
 }`);
   });
 
+  it('merges top level variables into classes when they are associated with those classes', () => {
+    expectTranslate(`interface X { a: number; }
+                     interface Y { c: number; }
+
+                     declare var X: {prototype: X, new (): X, b: string};
+                     declare var Y: {prototype: Y, new (): Y, d: string};`)
+        .to.equal(`@JS("X")
+abstract class X {
+  external num get a;
+  external set a(num v);
+  external factory X();
+  external static String get b;
+  external static set b(String v);
+}
+
+@JS("Y")
+abstract class Y {
+  external num get c;
+  external set c(num v);
+  external factory Y();
+  external static String get d;
+  external static set d(String v);
+}`);
+  });
+
   // If the lib.dom.d.ts file is compiled, it creates conflicting interface definitions which causes
   // a problem for variable declarations that we have merged into classes. The main problem was that
   // when the declaration transpiler performed the notSimpleBagOfProperties check, it was checking
