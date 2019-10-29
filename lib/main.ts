@@ -89,6 +89,11 @@ export class Transpiler {
    * Map of import library path to a Set of identifier names being imported.
    */
   imports: Map<String, ImportSummary>;
+  /**
+   * Map containing AST nodes that we have removed or replaced. This is safer than modifying the AST
+   * directly.
+   */
+  nodeSubstitutions: Map<ts.Node, ts.Node> = new Map();
   // Comments attach to all following AST nodes before the next 'physical' token. Track the earliest
   // offset to avoid printing comments multiple times.
   private lastCommentIdx = -1;
@@ -421,6 +426,9 @@ export class Transpiler {
   }
 
   visit(node: ts.Node) {
+    if (this.nodeSubstitutions.has(node)) {
+      node = this.nodeSubstitutions.get(node);
+    }
     if (!node) return;
     let comments = ts.getLeadingCommentRanges(this.currentFile.text, node.getFullStart());
     if (comments) {
