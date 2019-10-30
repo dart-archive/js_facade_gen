@@ -21,7 +21,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   private tc: ts.TypeChecker;
   private extendsClass = false;
   private containsPromises = false;
-  private promiseMethods: Set<ts.FunctionLikeDeclaration> = new Set();
+  private promiseMethods: Set<ts.SignatureDeclaration> = new Set();
 
   static NUM_FAKE_REST_PARAMETERS = 5;
 
@@ -243,7 +243,14 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     }
   }
 
-  visitMergingOverloads(members: ts.NodeArray<ts.Node>) {
+  /**
+   * Visits an array of class members and merges overloads.
+   *
+   * @returns An updated version of the members array containing all non-overloaded methods and the
+   *     resulting merged overloads. It does not contain the pre-merge constituent declarations.
+   */
+  visitMergingOverloads(members: ts.NodeArray<ts.Node>): ts.SignatureDeclaration[] {
+    const result: ts.SignatureDeclaration[] = [];
     // TODO(jacobr): merge method overloads.
     let groups: Map<string, ts.Node[]> = new Map();
     let orderedGroups: Array<ts.Node[]> = [];
@@ -316,8 +323,23 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     });
 
     orderedGroups.forEach((group: Array<ts.Node>) => {
+      const first = group[0] as ts.SignatureDeclaration;
+      // Check if the methods in this group return Promises. If so, skip visiting them on first
+      // encounter and add them to the promiseMethods set. If they are already in promiseMethods
+      // set, it means that this function is being called from emitMethodsAsExtensions and the
+      // methods should now be emitted.
+      if (base.isPromise(first.type) && !this.promiseMethods.has(first)) {
+        if (!this.containsPromises) {
+          this.containsPromises = true;
+        }
+        group.forEach((declaration: ts.SignatureDeclaration) => {
+          this.promiseMethods.add(declaration);
+        });
+        return;
+      }
       if (group.length === 1) {
-        this.visit(group[0]);
+        this.visit(first);
+        result.push(first);
         return;
       }
       group.forEach((fn: ts.Node) => {
@@ -330,7 +352,6 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         this.maybeLineBreak();
       });
       // TODO: actually merge.
-      let first = <ts.SignatureDeclaration>group[0];
       let kind = first.kind;
       let merged = <ts.SignatureDeclaration>ts.createNode(kind);
       merged.parent = first.parent;
@@ -384,7 +405,9 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       merged.typeParameters = mergedTypeParams.toTypeParameters();
 
       this.fc.visit(merged);
+      result.push(merged);
     });
+    return result;
   }
 
 
@@ -686,16 +709,6 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         break;
       case ts.SyntaxKind.MethodSignature:
         let methodSignatureDecl = <ts.FunctionLikeDeclaration>node;
-        if (base.isPromise(methodSignatureDecl.type)) {
-          if (this.promiseMethods.has(methodSignatureDecl)) {
-            break;
-          }
-          if (!this.containsPromises) {
-            this.containsPromises = true;
-          }
-          this.promiseMethods.add(methodSignatureDecl);
-          break;
-        }
         this.visitDeclarationMetadata(methodSignatureDecl);
         this.visitFunctionLike(methodSignatureDecl);
         break;
@@ -949,15 +962,13 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
   private emitMethodsAsExtensions(
       className: ts.Identifier, visitName: () => void, visitNameOfExtensions: () => void,
-      methods: Set<ts.FunctionLikeDeclaration>) {
+      methods: Set<ts.SignatureDeclaration>) {
     // Emit private class containing external methods
     this.emit(`@JS('${base.ident(className)}')`);
     this.emit(`abstract class _`);
     visitName();
     this.emit('{');
-    for (const declaration of methods) {
-      this.visitFunctionLike(declaration);
-    }
+    const processedMembers = this.visitMergingOverloads(ts.createNodeArray(Array.from(methods)));
     this.emit('}\n');
 
     // Emit extensions on public class to expose methods
@@ -966,7 +977,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.emit('on');
     visitName();
     this.emit('{');
-    for (const declaration of methods) {
+    for (const declaration of processedMembers) {
       if (!base.isPromise(declaration.type)) {
         continue;
       }

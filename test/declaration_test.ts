@@ -268,7 +268,7 @@ abstract class MyMath {}
 
 @JS('MyMath')
 abstract class _MyMath {
-  Promise<num> randomInRange(num start, num end);
+  external Promise<num> randomInRange(num start, num end);
 }
 
 extension MyMathExtensions on MyMath {
@@ -291,7 +291,7 @@ abstract class X<T> {}
 
 @JS('X')
 abstract class _X<T> {
-  Promise<T> f(T a);
+  external Promise<T> f(T a);
 }
 
 extension XExtensions<T> on X<T> {
@@ -326,7 +326,7 @@ abstract class Z implements Y {}
 
 @JS('Z')
 abstract class _Z {
-  Promise<String> f();
+  external Promise<String> f();
 }
 
 extension ZExtensions on Z {
@@ -334,6 +334,32 @@ extension ZExtensions on Z {
     final Object t = this;
     final _Z tt = t;
     return promiseToFuture(tt.f());
+  }
+}
+
+@JS()
+abstract class Promise<T> {}`);
+      expectTranslate(`declare interface X {
+        f(a: string): Promise<num>;
+        f(a: string, b: num): Promise<num>;
+      }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
+
+@anonymous
+@JS()
+abstract class X {}
+
+@JS('X')
+abstract class _X {
+  /*external Promise<num> f(String a);*/
+  /*external Promise<num> f(String a, num b);*/
+  external Promise<num> f(String a, [num b]);
+}
+
+extension XExtensions on X {
+  Future<num> f(String a, [num b]) {
+    final Object t = this;
+    final _X tt = t;
+    return promiseToFuture(tt.f(a, b));
   }
 }
 
