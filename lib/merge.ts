@@ -331,7 +331,7 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter, expli
               clazz.name = declaration.name as ts.Identifier;
               clazz.members = ts.createNodeArray();
               base.copyNodeArrayLocation(declaration, clazz.members);
-              replaceNode(n, clazz);
+              fc.replaceNode(n, clazz);
               classes.set(name, clazz);
             }
 
@@ -347,7 +347,7 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter, expli
               let type: ts.TypeNode = declaration.type;
               if (ts.isTypeLiteralNode(type)) {
                 if (existingClass) {
-                  removeNode(n);
+                  fc.suppressNode(n);
                 }
                 type.members.forEach((member: ts.TypeElement) => {
                   switch (member.kind) {
@@ -454,32 +454,6 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter, expli
     return propertyDeclarations;
   }
 
-  function removeFromArray(nodes: ts.NodeArray<ts.Node>, v: ts.Node) {
-    for (let i = 0, len = nodes.length; i < len; ++i) {
-      if (nodes[i] === v) {
-        // Small hack to get around NodeArrays being readonly
-        Array.prototype.splice.call(nodes, i, 1);
-        break;
-      }
-    }
-  }
-
-  function removeNode(n: ts.Node) {
-    let parent = n.parent;
-    switch (parent.kind) {
-      case ts.SyntaxKind.ModuleBlock:
-        let block = <ts.ModuleBlock>parent;
-        removeFromArray(block.statements, n);
-        break;
-      case ts.SyntaxKind.SourceFile:
-        let sourceFile = <ts.SourceFile>parent;
-        removeFromArray(sourceFile.statements, n);
-        break;
-      default:
-        throw 'removeNode not implemented for kind:' + parent.kind;
-    }
-  }
-
   function replaceInArray(nodes: ts.NodeArray<ts.Node>, v: ts.Node, replacement: ts.Node) {
     for (let i = 0, len = nodes.length; i < len; ++i) {
       if (nodes[i] === v) {
@@ -487,23 +461,6 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter, expli
         Array.prototype.splice.call(nodes, i, 1, replacement);
         break;
       }
-    }
-  }
-
-  function replaceNode(n: ts.Node, replacement: ts.Node) {
-    let parent = n.parent;
-    replacement.parent = parent;
-    switch (parent.kind) {
-      case ts.SyntaxKind.ModuleBlock:
-        let block = <ts.ModuleBlock>parent;
-        replaceInArray(block.statements, n, replacement);
-        break;
-      case ts.SyntaxKind.SourceFile:
-        let sourceFile = <ts.SourceFile>parent;
-        replaceInArray(sourceFile.statements, n, replacement);
-        break;
-      default:
-        throw 'replaceNode not implemented for kind:' + parent.kind;
     }
   }
 
@@ -520,13 +477,13 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter, expli
           Array.prototype.push.call(existing.members, e);
           e.parent = existing;
         });
-        removeNode(classDecl);
+        fc.suppressNode(classDecl);
       } else {
         classes.set(name, classDecl);
         // Perform other class level post processing here.
       }
     } else if (ts.isModuleDeclaration(n) || ts.isSourceFile(n)) {
-      let moduleClasses: Map<string, base.ClassLike> = new Map();
+      const moduleClasses: Map<string, base.ClassLike> = new Map();
       ts.forEachChild(n, (child) => gatherClasses(child, moduleClasses));
       ts.forEachChild(n, (child) => mergeVariablesIntoClasses(child, moduleClasses));
     } else if (ts.isModuleBlock(n)) {

@@ -282,15 +282,6 @@ export function copyNodeArrayLocation(src: ts.TextRange, dest: ts.NodeArray<any>
   dest.end = src.end;
 }
 
-// Polyfill for ES6 Array.find.
-export function arrayFindPolyfill<T extends ts.Node>(
-    nodeArray: ts.NodeArray<T>, predicate: (node: T) => boolean): T {
-  for (let i = 0; i < nodeArray.length; ++i) {
-    if (predicate(nodeArray[i])) return nodeArray[i];
-  }
-  return null;
-}
-
 export function getAncestor(n: ts.Node, kind: ts.SyntaxKind): ts.Node {
   for (let parent = n; parent; parent = parent.parent) {
     if (parent.kind === kind) return parent;
@@ -452,6 +443,22 @@ export class TranspilerBase {
 
   reportError(n: ts.Node, message: string) {
     this.transpiler.reportError(n, message);
+  }
+
+  /**
+   * Prevents this node from being visited.
+   */
+  suppressNode(n: ts.Node) {
+    const emptyNode = ts.createNode(ts.SyntaxKind.EmptyStatement);
+    copyLocation(n, emptyNode);
+    this.replaceNode(n, emptyNode);
+  }
+
+  /**
+   * Effectively replaces original with replacement in the AST.
+   */
+  replaceNode(original: ts.Node, replacement: ts.Node) {
+    this.transpiler.nodeSubstitutions.set(original, replacement);
   }
 
   visitNode(n: ts.Node): boolean {
