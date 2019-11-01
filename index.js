@@ -6,6 +6,7 @@ var args = require('minimist')(process.argv.slice(2), {
   base: 'string',
   boolean: ['semantic-diagnostics', 'generate-html', 'explicit-static'],
   alias: {
+    'base-path': 'basePath',
     'semantic-diagnostics': 'semanticDiagnostics',
     'generate-html': 'generateHTML',
     'explicit-static': 'explicitStatic'

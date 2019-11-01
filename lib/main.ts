@@ -127,21 +127,22 @@ export class Transpiler {
       this.options.basePath = this.normalizeSlashes(path.resolve(this.options.basePath));
     }
     fileNames = fileNames.map((f) => this.normalizeSlashes(f));
-    let host = this.createCompilerHost();
-    let program = ts.createProgram(fileNames, this.getCompilerOptions(), host);
+    const host = this.createCompilerHost();
+    const program = ts.createProgram(fileNames, this.getCompilerOptions(), host);
     this.fc.setTypeChecker(program.getTypeChecker());
     this.declarationTranspiler.setTypeChecker(program.getTypeChecker());
 
     // Only write files that were explicitly passed in.
     const fileSet = new Set(fileNames);
-    let sourceFiles =
-        program.getSourceFiles().filter((sourceFile) => fileSet.has(sourceFile.fileName));
+    const sourceFiles = program.getSourceFiles().filter((sourceFile) => {
+      return fileSet.has(sourceFile.fileName);
+    });
 
     this.errors = [];
 
-    let sourceFileMap: {[s: string]: ts.SourceFile} = {};
+    const sourceFileMap: Map<string, ts.SourceFile> = new Map();
     sourceFiles.forEach((f: ts.SourceFile) => {
-      sourceFileMap[f.fileName] = f;
+      sourceFileMap.set(f.fileName, f);
     });
 
     // Check for global module export declarations and propogate them to all modules they export.
@@ -154,6 +155,7 @@ export class Transpiler {
         let globalModuleName = base.ident(n.name);
         f.moduleName = globalModuleName;
 
+        const missingFiles: string[] = [];
         f.statements.forEach((e: ts.Node) => {
           if (!ts.isExportDeclaration(e)) return;
           let exportDecl = e;
@@ -164,10 +166,25 @@ export class Transpiler {
               [location], f.fileName, undefined, undefined, this.getCompilerOptions());
           resolvedPath.forEach((p) => {
             if (p.isExternalLibraryImport) return;
-            let exportedFile = sourceFileMap[p.resolvedFileName];
-            exportedFile.moduleName = globalModuleName;
+            const exportedFile = sourceFileMap.get(p.resolvedFileName);
+            if (exportedFile) {
+              exportedFile.moduleName = globalModuleName;
+            } else {
+              missingFiles.push(p.resolvedFileName);
+            }
           });
         });
+        if (missingFiles.length) {
+          const error = new Error();
+          error.message =
+              'The following files were referenced but were not supplied as a command line arguments. Reference the README for usage instructions.';
+          for (const file of missingFiles) {
+            error.message += '\n';
+            error.message += file;
+          }
+          error.name = 'DartFacadeError';
+          throw error;
+        }
       });
     });
 
@@ -215,7 +232,7 @@ export class Transpiler {
 
   private createCompilerHost(): ts.CompilerHost {
     const compilerOptions = this.getCompilerOptions();
-    let compilerHost = ts.createCompilerHost(compilerOptions);
+    const compilerHost = ts.createCompilerHost(compilerOptions);
     let defaultLibFileName = ts.getDefaultLibFileName(compilerOptions);
     defaultLibFileName = this.normalizeSlashes(defaultLibFileName);
     compilerHost.getSourceFile = (sourceName) => {
@@ -232,6 +249,7 @@ export class Transpiler {
     };
     compilerHost.useCaseSensitiveFileNames = () => true;
     compilerHost.getCanonicalFileName = (filename) => filename;
+    compilerHost.getCurrentDirectory = () => '';
     compilerHost.getNewLine = () => '\n';
     compilerHost.resolveModuleNames = getModuleResolver(compilerHost);
 
@@ -339,7 +357,7 @@ export class Transpiler {
     if (diagnosticErrs.length) errors = errors.concat(diagnosticErrs);
 
     if (errors.length) {
-      let e = new Error(errors.join('\n'));
+      const e = new Error(errors.join('\n'));
       e.name = 'DartFacadeError';
       throw e;
     }
