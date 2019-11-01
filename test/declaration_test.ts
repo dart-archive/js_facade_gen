@@ -340,8 +340,8 @@ extension ZExtensions on Z {
 @JS()
 abstract class Promise<T> {}`);
       expectTranslate(`declare interface X {
-        f(a: string): Promise<num>;
-        f(a: string, b: num): Promise<num>;
+        f(a: string): Promise<number>;
+        f(a: string, b: number): Promise<number>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
 @anonymous
@@ -359,7 +359,41 @@ extension XExtensions on X {
   Future<num> f(String a, [num b]) {
     final Object t = this;
     final _X tt = t;
+    if (b == null) {
+      return promiseToFuture(tt.f(a));
+    }
     return promiseToFuture(tt.f(a, b));
+  }
+}
+
+@JS()
+abstract class Promise<T> {}`);
+      expectTranslate(`declare interface X {
+        f(a: string): Promise<number>;
+        f(a: number, b: number): Promise<number>;
+        f(c: number[]): Promise<number>;
+      }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
+
+@anonymous
+@JS()
+abstract class X {}
+
+@JS('X')
+abstract class _X {
+  /*external Promise<num> f(String a);*/
+  /*external Promise<num> f(num a, num b);*/
+  /*external Promise<num> f(List<num> c);*/
+  external Promise<num> f(dynamic /*String|num|List<num>*/ a_c, [num b]);
+}
+
+extension XExtensions on X {
+  Future<num> f(dynamic /*String|num|List<num>*/ a_c, [num b]) {
+    final Object t = this;
+    final _X tt = t;
+    if (b == null) {
+      return promiseToFuture(tt.f(a_c));
+    }
+    return promiseToFuture(tt.f(a_c, b));
   }
 }
 

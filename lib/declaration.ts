@@ -3,7 +3,7 @@ import * as ts from 'typescript';
 import * as base from './base';
 import {FacadeConverter} from './facade_converter';
 import {Transpiler} from './main';
-import {MergedParameter, MergedType, MergedTypeParameters} from './merge';
+import {MergedMember, MergedParameter, MergedType, MergedTypeParameters} from './merge';
 
 export function isFunctionLikeProperty(
     decl: ts.VariableDeclaration|ts.ParameterDeclaration|ts.PropertyDeclaration|
@@ -20,8 +20,9 @@ export function isFunctionLikeProperty(
 export default class DeclarationTranspiler extends base.TranspilerBase {
   private tc: ts.TypeChecker;
   private extendsClass = false;
+  private visitPromises = false;
   private containsPromises = false;
-  private promiseMethods: Set<ts.SignatureDeclaration> = new Set();
+  private promiseMethods: ts.SignatureDeclaration[] = [];
 
   static NUM_FAKE_REST_PARAMETERS = 5;
 
@@ -246,11 +247,13 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   /**
    * Visits an array of class members and merges overloads.
    *
-   * @returns An updated version of the members array containing all non-overloaded methods and the
-   *     resulting merged overloads. It does not contain the pre-merge constituent declarations.
+   * @returns An updated version of the members array. All overloaded methods are grouped into
+   *     MergedMember objects that contain all original declarations, as well as the merged result.
+   *     Other non-overloaded members are represented by MergedMembers with only one constituent,
+   *     which is the single declaration of the member.
    */
-  visitMergingOverloads(members: ts.NodeArray<ts.Node>): ts.SignatureDeclaration[] {
-    const result: ts.SignatureDeclaration[] = [];
+  visitMergingOverloads(members: ts.NodeArray<ts.Node>): MergedMember[] {
+    const result: MergedMember[] = [];
     // TODO(jacobr): merge method overloads.
     let groups: Map<string, ts.Node[]> = new Map();
     let orderedGroups: Array<ts.Node[]> = [];
@@ -322,24 +325,24 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       group.push(node);
     });
 
-    orderedGroups.forEach((group: Array<ts.Node>) => {
-      const first = group[0] as ts.SignatureDeclaration;
-      // Check if the methods in this group return Promises. If so, skip visiting them on first
-      // encounter and add them to the promiseMethods set. If they are already in promiseMethods
-      // set, it means that this function is being called from emitMethodsAsExtensions and the
-      // methods should now be emitted.
-      if (base.isPromise(first.type) && !this.promiseMethods.has(first)) {
+    orderedGroups.forEach((group: Array<ts.SignatureDeclaration>) => {
+      const first = group[0];
+      // If the methods in this group return Promises and this.visitPromises is false, skip
+      // visiting these methods and add them to this.promiseMethods. If the methods in this group
+      // return Promises and this.visitPromises is true, it means that this function is being called
+      // from emitMethodsAsExtensions and the methods should now be visited.
+      if (!this.visitPromises && base.isPromise(first.type)) {
         if (!this.containsPromises) {
           this.containsPromises = true;
         }
         group.forEach((declaration: ts.SignatureDeclaration) => {
-          this.promiseMethods.add(declaration);
+          this.promiseMethods.push(declaration);
         });
         return;
       }
       if (group.length === 1) {
         this.visit(first);
-        result.push(first);
+        result.push(new MergedMember(group, first));
         return;
       }
       group.forEach((fn: ts.Node) => {
@@ -405,7 +408,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       merged.typeParameters = mergedTypeParams.toTypeParameters();
 
       this.fc.visit(merged);
-      result.push(merged);
+      result.push(new MergedMember(group, merged));
     });
     return result;
   }
@@ -878,7 +881,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
     this.visitClassBody(decl, name);
     this.emit('}\n');
-    if (this.promiseMethods.size) {
+    if (this.promiseMethods.length) {
       const visitName = () => {
         this.visitClassLikeName(name, typeParameters, ts.createNodeArray(), false);
       };
@@ -886,7 +889,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         this.visitClassLikeName(name, typeParameters, ts.createNodeArray(), true);
       };
       this.emitMethodsAsExtensions(name, visitName, visitNameOfExtensions, this.promiseMethods);
-      this.promiseMethods.clear();
+      this.promiseMethods = [];
     }
     this.emit('\n');
   }
@@ -962,13 +965,14 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
   private emitMethodsAsExtensions(
       className: ts.Identifier, visitName: () => void, visitNameOfExtensions: () => void,
-      methods: Set<ts.SignatureDeclaration>) {
+      methods: ts.SignatureDeclaration[]) {
+    this.visitPromises = true;
     // Emit private class containing external methods
     this.emit(`@JS('${base.ident(className)}')`);
     this.emit(`abstract class _`);
     visitName();
     this.emit('{');
-    const processedMembers = this.visitMergingOverloads(ts.createNodeArray(Array.from(methods)));
+    const mergedMembers = this.visitMergingOverloads(ts.createNodeArray(Array.from(methods)));
     this.emit('}\n');
 
     // Emit extensions on public class to expose methods
@@ -977,7 +981,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.emit('on');
     visitName();
     this.emit('{');
-    for (const declaration of processedMembers) {
+    for (const merged of mergedMembers) {
+      const declaration = merged.mergedDeclaration;
       if (!base.isPromise(declaration.type)) {
         continue;
       }
@@ -992,10 +997,49 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       this.emit('final _');
       this.fc.visitTypeName(className);
       this.emit('tt = t;\n');
-      this.emit(`return promiseToFuture(tt.${base.ident(declaration.name)}`);
-      this.visitParameters(declaration.parameters, {namesOnly: true});
-      this.emit(');}\n');
+      this.emitExtensionBody(merged);
+      this.emit('}\n');
     }
     this.emit('}\n');
+    this.visitPromises = false;
+  }
+
+  private emitExtensionBody({constituents, mergedDeclaration}: MergedMember) {
+    // Determine all valid arties of this method by going through the overloaded signatures
+    const arities: Set<number> = new Set();
+    for (const constituent of constituents) {
+      const arity = constituent.parameters.length;
+      arities.add(arity);
+    }
+    const sortedArities = Array.from(arities).sort();
+    for (const arity of sortedArities) {
+      if (arity < mergedDeclaration.parameters.length) {
+        const firstOptionalIndex = arity;
+        const suppliedParameters = mergedDeclaration.parameters.slice(0, firstOptionalIndex);
+        const omittedParameters = mergedDeclaration.parameters.slice(
+            firstOptionalIndex, mergedDeclaration.parameters.length);
+        // Emit null checks to verify the number of omitted parameters
+        this.emit('if (');
+        let isFirst = true;
+        for (const omitted of omittedParameters) {
+          if (isFirst) {
+            isFirst = false;
+          } else {
+            this.emit('&&');
+          }
+          this.visit(omitted.name);
+          this.emit('== null');
+        }
+        this.emit(') {');
+        this.emit(`return promiseToFuture(tt.${base.ident(mergedDeclaration.name)}`);
+        this.visitParameters(ts.createNodeArray(suppliedParameters), {namesOnly: true});
+        this.emit('); }\n');
+      } else {
+        // No parameters were omitted, no null checks are necessary for this call
+        this.emit(`return promiseToFuture(tt.${base.ident(mergedDeclaration.name)}`);
+        this.visitParameters(ts.createNodeArray(mergedDeclaration.parameters), {namesOnly: true});
+        this.emit(');\n');
+      }
+    }
   }
 }
