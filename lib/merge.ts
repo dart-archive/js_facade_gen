@@ -31,7 +31,7 @@ export class MergedType {
           this.merge((t as ts.TypePredicateNode).type);
           return;
         case ts.SyntaxKind.TypeReference:
-          // We need to follow Alais types as Dart does not support them for non
+          // We need to follow Alias types as Dart does not support them for non
           // function types. TODO(jacobr): handle them for Function types?
           let typeRef = <ts.TypeReferenceNode>t;
           let decl = this.fc.getDeclaration(typeRef.typeName);
@@ -221,6 +221,22 @@ export class MergedTypeParameters {
     base.copyNodeArrayLocation(this.textRange, ret);
 
     return ret;
+  }
+}
+
+/**
+ * Represents a merged class member. If the member was not overloaded, the constituents array
+ * will contain only the original declaration and mergedDeclaration will just be the original
+ * declaration. If the member was an overloaded method, the constituents array will contain all
+ * overloaded declarations and mergedDeclaration will contain the result of merging the overloads.
+ */
+export class MergedMember {
+  constructor(
+      public constituents: ts.SignatureDeclaration[],
+      public mergedDeclaration: ts.SignatureDeclaration) {}
+
+  isOverloaded(): boolean {
+    return this.constituents.length > 1;
   }
 }
 
