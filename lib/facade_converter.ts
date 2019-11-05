@@ -531,26 +531,26 @@ export class FacadeConverter extends base.TranspilerBase {
     return base.formatType(name, comment, options);
   }
 
-  visitTypeName(typeName: ts.EntityName|ts.PropertyAccessExpression) {
-    if (typeName.kind === ts.SyntaxKind.PropertyAccessExpression) {
+  visitTypeName(typeName: ts.EntityName|ts.PropertyName|ts.PropertyAccessExpression) {
+    if (ts.isPropertyAccessExpression(typeName)) {
       // The LHS of the expression doesn't matter as we will get the global symbol name for the RHS
       // of the expression.
-      this.visitTypeName((typeName as ts.PropertyAccessExpression).name);
+      this.visitTypeName(typeName.name);
       return;
     }
-    if (typeName.kind === ts.SyntaxKind.QualifiedName) {
+    if (ts.isQualifiedName(typeName)) {
       // The LHS of the expression doesn't matter as we will get the global symbol name for the RHS
       // of the expression.
-      this.visitTypeName((typeName as ts.QualifiedName).right);
+      this.visitTypeName(typeName.right);
       return;
     }
 
-    if (typeName.kind !== ts.SyntaxKind.Identifier) {
+    if (!ts.isIdentifier(typeName)) {
       this.visit(typeName);
       return;
     }
-    let ident = base.ident(typeName);
-    let identifier = <ts.Identifier>typeName;
+    const ident = base.ident(typeName);
+    const identifier = typeName;
     if (this.isGenericMethodTypeParameterName(identifier)) {
       // DDC generic methods hack - all names that are type parameters to generic methods have to be
       // emitted in comments.
@@ -558,7 +558,7 @@ export class FacadeConverter extends base.TranspilerBase {
       return;
     }
 
-    let custom = this.lookupCustomDartTypeName(
+    const custom = this.lookupCustomDartTypeName(
         identifier,
         {insideComment: this.insideCodeComment, insideTypeArgument: this.insideTypeArgument});
     if (custom) {

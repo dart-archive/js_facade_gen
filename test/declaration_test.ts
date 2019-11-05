@@ -280,7 +280,11 @@ extension MyMathExtensions on MyMath {
 }
 
 @JS()
-abstract class Promise<T> {}`);
+abstract class Promise<T> {
+  external factory Promise(
+      void executor(void resolve(T result), Function reject));
+  external Promise then(void onFulfilled(T result), [Function onRejected]);
+}`);
       expectTranslate(`declare interface X<T> {
         f(a: T): Promise<T>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
@@ -297,13 +301,17 @@ abstract class _X<T> {
 extension XExtensions<T> on X<T> {
   Future<T> f(T a) {
     final Object t = this;
-    final _X tt = t;
+    final _X<T> tt = t;
     return promiseToFuture(tt.f(a));
   }
 }
 
 @JS()
-abstract class Promise<T> {}`);
+abstract class Promise<T> {
+  external factory Promise(
+      void executor(void resolve(T result), Function reject));
+  external Promise then(void onFulfilled(T result), [Function onRejected]);
+}`);
       expectTranslate(`declare interface Y {
         a: number;
       }
@@ -338,7 +346,11 @@ extension ZExtensions on Z {
 }
 
 @JS()
-abstract class Promise<T> {}`);
+abstract class Promise<T> {
+  external factory Promise(
+      void executor(void resolve(T result), Function reject));
+  external Promise then(void onFulfilled(T result), [Function onRejected]);
+}`);
       expectTranslate(`declare interface X {
         f(a: string): Promise<number>;
         f(a: string, b: number): Promise<number>;
@@ -367,7 +379,11 @@ extension XExtensions on X {
 }
 
 @JS()
-abstract class Promise<T> {}`);
+abstract class Promise<T> {
+  external factory Promise(
+      void executor(void resolve(T result), Function reject));
+  external Promise then(void onFulfilled(T result), [Function onRejected]);
+}`);
       expectTranslate(`declare interface X {
         f(a: string): Promise<number>;
         f(a: number, b: number): Promise<number>;
@@ -398,7 +414,11 @@ extension XExtensions on X {
 }
 
 @JS()
-abstract class Promise<T> {}`);
+abstract class Promise<T> {
+  external factory Promise(
+      void executor(void resolve(T result), Function reject));
+  external Promise then(void onFulfilled(T result), [Function onRejected]);
+}`);
     });
     it('supports abstract methods', () => {
       expectTranslate('abstract class X { abstract x(); }').to.equal(`@JS()
@@ -500,6 +520,92 @@ class X {
   external bool get JS$_marbles;
   external set JS$_marbles(bool v);
   external factory X(String foo, num b, [bool JS$_marbles]);
+}`);
+    });
+    it('should emit extension getters/setters that expose Futures in place of Promises', () => {
+      expectTranslate(`interface MyMath {
+        readonly two: Promise<num>;
+        three: Promise<num>;
+      }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
+
+@anonymous
+@JS()
+abstract class MyMath {
+  external factory MyMath({Promise<num> two, Promise<num> three});
+}
+
+@JS('MyMath')
+abstract class _MyMath {
+  external Promise<num> get two;
+  external Promise<num> get three;
+  external set three(Promise<num> v);
+}
+
+extension MyMathExtensions on MyMath {
+  Future<num> get two {
+    final Object t = this;
+    final _MyMath tt = t;
+    return promiseToFuture(tt.two);
+  }
+
+  Future<num> get three {
+    final Object t = this;
+    final _MyMath tt = t;
+    return promiseToFuture(tt.three);
+  }
+
+  set three(Future<num> v) {
+    final Object t = this;
+    final _MyMath tt = t;
+    tt.three = Promise<num>(allowInterop((resolve, reject) {
+      v.then(resolve, onError: reject);
+    }));
+  }
+}
+
+@JS()
+abstract class Promise<T> {
+  external factory Promise(
+      void executor(void resolve(T result), Function reject));
+  external Promise then(void onFulfilled(T result), [Function onRejected]);
+}`);
+      expectTranslate(`interface X<T> {
+        aPromise: Promise<T>;
+      }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
+
+@anonymous
+@JS()
+abstract class X<T> {
+  external factory X({Promise<T> aPromise});
+}
+
+@JS('X')
+abstract class _X<T> {
+  external Promise<T> get aPromise;
+  external set aPromise(Promise<T> v);
+}
+
+extension XExtensions<T> on X<T> {
+  Future<T> get aPromise {
+    final Object t = this;
+    final _X<T> tt = t;
+    return promiseToFuture(tt.aPromise);
+  }
+
+  set aPromise(Future<T> v) {
+    final Object t = this;
+    final _X<T> tt = t;
+    tt.aPromise = Promise<T>(allowInterop((resolve, reject) {
+      v.then(resolve, onError: reject);
+    }));
+  }
+}
+
+@JS()
+abstract class Promise<T> {
+  external factory Promise(
+      void executor(void resolve(T result), Function reject));
+  external Promise then(void onFulfilled(T result), [Function onRejected]);
 }`);
     });
   });
