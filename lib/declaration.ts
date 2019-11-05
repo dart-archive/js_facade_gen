@@ -5,6 +5,17 @@ import {FacadeConverter} from './facade_converter';
 import {Transpiler} from './main';
 import {MergedMember, MergedParameter, MergedType, MergedTypeParameters} from './merge';
 
+const PRIVATE_CLASS_INSTANCE_IN_EXTENSIONS = 'tt';
+
+type emitGetterOrSetterOptions = {
+  mode: 'getter'|'setter',
+  declaration: ts.PropertyDeclaration|ts.PropertySignature|ts.VariableDeclaration|
+             ts.ParameterDeclaration,
+  emitJsAnnotation: boolean,
+  isExternal: boolean,
+  emitBody?: (declaration: ts.PropertyDeclaration|ts.PropertySignature) => void
+};
+
 export function isFunctionLikeProperty(
     decl: ts.VariableDeclaration|ts.ParameterDeclaration|ts.PropertyDeclaration|
     ts.PropertySignature,
@@ -530,6 +541,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         this.visitMergingOverloads(sourceFile.statements);
         if (this.containsPromises) {
           this.addImport('package:js/js_util.dart', 'promiseToFuture');
+          // TODO(derekx): Move this definition of the Promise class to a package
           this.emit(`@JS()
                      abstract class Promise<T> {
                        external factory Promise(void executor(void resolve(T result), Function reject));
@@ -545,26 +557,17 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         // We have to handle variable declaration lists differently in the case
         // of JS interop because Dart does not support external variables.
         let varDeclList = <ts.VariableDeclarationList>node;
-        this.visitList(varDeclList.declarations, ';');
+        this.visitList(varDeclList.declarations, ' ');
       } break;
       case ts.SyntaxKind.VariableDeclaration: {
         // We have to handle variable declarations differently in the case of JS
         // interop because Dart does not support external variables.
         let varDecl = <ts.VariableDeclaration>node;
-        this.maybeEmitJsAnnotation(varDecl);
-        this.emit('external');
-        this.visit(varDecl.type);
-        this.emit('get');
-        this.visitName(varDecl.name);
+        this.emitGetterOrSetter(
+            {mode: 'getter', declaration: varDecl, emitJsAnnotation: true, isExternal: true});
         if (!this.hasNodeFlag(varDecl, ts.NodeFlags.Const)) {
-          this.emitNoSpace(';');
-          this.maybeEmitJsAnnotation(varDecl);
-          this.emit('external');
-          this.emit('set');
-          this.visitName(varDecl.name);
-          this.emitNoSpace('(');
-          this.visit(varDecl.type);
-          this.emit('v)');
+          this.emitGetterOrSetter(
+              {mode: 'setter', declaration: varDecl, emitJsAnnotation: true, isExternal: true});
         }
       } break;
       case ts.SyntaxKind.StringLiteral: {
@@ -748,7 +751,6 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       case ts.SyntaxKind.VariableStatement:
         let variableStmt = <ts.VariableStatement>node;
         this.visit(variableStmt.declarationList);
-        this.emitNoSpace(';');
         break;
       case ts.SyntaxKind.SwitchStatement:
       case ts.SyntaxKind.ArrayLiteralExpression:
@@ -820,30 +822,18 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       decl: ts.PropertyDeclaration|ts.ParameterDeclaration, isParameter?: boolean) {
     const hasValidName =
         !ts.isStringLiteral(decl.name) || base.isValidDartIdentifier(decl.name.text);
-    const isStatic = base.isStatic(decl);
 
     // TODO(derekx): Properties with names that contain special characters are currently ignored by
     // commenting them out. Determine a way to rename these properties in the future.
     this.maybeWrapInCodeComment({shouldWrap: !hasValidName, newLine: true}, () => {
-      this.emit('external');
-      if (isStatic) this.emit('static');
-      this.visit(decl.type);
-      this.emit('get');
-      this.visitName(decl.name);
-      this.emitNoSpace(';');
+      this.emitGetterOrSetter(
+          {mode: 'getter', declaration: decl, emitJsAnnotation: false, isExternal: true});
     });
 
     if (!base.isReadonly(decl)) {
       this.maybeWrapInCodeComment({shouldWrap: !hasValidName, newLine: true}, () => {
-        this.emit('external');
-        if (isStatic) this.emit('static');
-        this.emit('set');
-        this.visitName(decl.name);
-        this.emitNoSpace('(');
-        this.visit(decl.type);
-        this.emit('v');
-        this.emitNoSpace(')');
-        this.emitNoSpace(';');
+        this.emitGetterOrSetter(
+            {mode: 'setter', declaration: decl, emitJsAnnotation: false, isExternal: true});
       });
     }
   }
@@ -968,28 +958,51 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.emitNoSpace(';');
   }
 
+  private emitGetterOrSetter({mode, declaration, emitJsAnnotation, isExternal, emitBody}:
+                                 emitGetterOrSetterOptions) {
+    const {name, type} = declaration;
+
+    if (emitJsAnnotation) {
+      this.maybeEmitJsAnnotation(declaration);
+    }
+    if (isExternal) {
+      this.emit('external');
+    }
+    if (base.isStatic(declaration)) {
+      this.emit('static');
+    }
+    if (mode === 'getter') {
+      this.visit(type);
+      this.emit('get');
+      this.visitName(name);
+    } else if (mode === 'setter') {
+      this.emit('set');
+      this.visitName(name);
+      this.emitNoSpace('(');
+      this.visit(type);
+      this.emit('v)');
+    }
+    if (emitBody && !ts.isVariableDeclaration(declaration) && !ts.isParameter(declaration)) {
+      this.emit('{');
+      emitBody(declaration);
+      this.emit('}');
+    } else {
+      this.emitNoSpace(';');
+    }
+  }
+
+  private emitCastThisToPrivateClass(visitClassName: () => void) {
+    this.emit('final Object t = this;');
+    this.emit('final _');
+    visitClassName();
+    this.emit('tt = t;\n');
+  }
+
   private emitMembersAsExtensions(
       className: ts.Identifier, visitClassName: () => void, visitNameOfExtensions: () => void,
       methods: ts.SignatureDeclaration[]) {
-    const visitTypeAndArguments = (type: ts.TypeNode) => {
-      if (ts.isTypeReferenceNode(type) && base.ident(type.typeName) === 'Promise') {
-        this.emit('Future');
-        if (ts.isTypeReferenceNode(type)) {
-          this.maybeVisitTypeArguments(type);
-        }
-      } else {
-        this.fc.visit(type);
-      }
-    };
-
-    const castThisToPrivateClass = () => {
-      this.emit('final Object t = this;');
-      this.emit('final _');
-      visitClassName();
-      this.emit('tt = t;\n');
-    };
-
     this.visitPromises = true;
+    this.fc.emitPromisesAsFutures = false;
     // Emit private class containing external methods
     this.emit(`@JS('${base.ident(className)}')`);
     this.emit(`abstract class _`);
@@ -997,6 +1010,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.emit('{');
     const mergedMembers = this.visitMergingOverloads(ts.createNodeArray(Array.from(methods)));
     this.emit('}\n');
+    this.fc.emitPromisesAsFutures = true;
 
     // Emit extensions on public class to expose methods
     this.emit('extension');
@@ -1007,30 +1021,34 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     for (const merged of mergedMembers) {
       const declaration = merged.mergedDeclaration;
       if (ts.isPropertyDeclaration(declaration) || ts.isPropertySignature(declaration)) {
-        visitTypeAndArguments(declaration.type);
-        this.emit('get');
-        this.visitName(declaration.name);
-        this.emit('{');
-        castThisToPrivateClass();
-        this.emitExtensionGetterBody(declaration);
-        this.emit('}');
+        this.emitGetterOrSetter({
+          mode: 'getter',
+          declaration,
+          emitJsAnnotation: false,
+          isExternal: false,
+          emitBody: () => {
+            this.emitCastThisToPrivateClass(visitClassName);
+            this.emitExtensionGetterBody(declaration);
+          }
+        });
         if (!base.isReadonly(declaration)) {
-          this.emit('set');
-          this.visitName(declaration.name);
-          this.emit('(');
-          visitTypeAndArguments(declaration.type);
-          this.emit(' v)');
-          this.emit('{');
-          castThisToPrivateClass();
-          this.emitExtensionSetterBody(declaration);
-          this.emit('}');
+          this.emitGetterOrSetter({
+            mode: 'setter',
+            declaration,
+            emitJsAnnotation: false,
+            isExternal: false,
+            emitBody: () => {
+              this.emitCastThisToPrivateClass(visitClassName);
+              this.emitExtensionSetterBody(declaration);
+            }
+          });
         }
       } else if (ts.isMethodDeclaration(declaration) || ts.isMethodSignature(declaration)) {
-        visitTypeAndArguments(declaration.type);
+        this.visit(declaration.type);
         this.visitName(declaration.name);
         this.visitParameters(declaration.parameters, {namesOnly: false});
         this.emit('{');
-        castThisToPrivateClass();
+        this.emitCastThisToPrivateClass(visitClassName);
         this.emitExtensionMethodBody(merged);
         this.emit('}\n');
       }
@@ -1066,13 +1084,17 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
           this.emit('== null');
         }
         this.emit(') {');
-        this.emit('return promiseToFuture(tt.');
+        this.emit('return promiseToFuture(');
+        this.emit(PRIVATE_CLASS_INSTANCE_IN_EXTENSIONS);
+        this.emit('.');
         this.visitName(mergedDeclaration.name);
         this.visitParameters(ts.createNodeArray(suppliedParameters), {namesOnly: true});
         this.emit('); }\n');
       } else {
         // No parameters were omitted, no null checks are necessary for this call
-        this.emit('return promiseToFuture(tt.');
+        this.emit('return promiseToFuture(');
+        this.emit(PRIVATE_CLASS_INSTANCE_IN_EXTENSIONS);
+        this.emit('.');
         this.visitName(mergedDeclaration.name);
         this.visitParameters(ts.createNodeArray(mergedDeclaration.parameters), {namesOnly: true});
         this.emit(');\n');
@@ -1081,16 +1103,23 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   }
 
   private emitExtensionGetterBody(declaration: ts.PropertyDeclaration|ts.PropertySignature) {
-    this.emit('return promiseToFuture(tt.');
+    this.emit('return promiseToFuture(');
+    this.emit(PRIVATE_CLASS_INSTANCE_IN_EXTENSIONS);
+    this.emit('.');
     this.visitName(declaration.name);
     this.emit(');');
   }
 
   private emitExtensionSetterBody(declaration: ts.PropertyDeclaration|ts.PropertySignature) {
-    this.emit('tt.');
+    this.emit(PRIVATE_CLASS_INSTANCE_IN_EXTENSIONS);
+    this.emit('.');
     this.visitName(declaration.name);
     this.emit('=');
-    this.emit(this.fc.generateDartTypeName(declaration.type));
+    // To emit the call to the Promise constructor, we need to temporarily disable
+    // this.fc.emitPromisesAsFutures
+    this.fc.emitPromisesAsFutures = false;
+    this.visit(declaration.type);
+    this.fc.emitPromisesAsFutures = true;
     this.emit('(allowInterop((resolve, reject) { v.then(resolve, onError: reject); }));');
   }
 }

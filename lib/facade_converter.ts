@@ -229,6 +229,7 @@ export class FacadeConverter extends base.TranspilerBase {
   private typingsRootRegex: RegExp;
   private genericMethodDeclDepth = 0;
   private nameRewriter: NameRewriter;
+  emitPromisesAsFutures = false;
 
   constructor(transpiler: Transpiler, typingsRoot?: string, private generateHTML?: boolean) {
     super(transpiler);
@@ -641,6 +642,9 @@ export class FacadeConverter extends base.TranspilerBase {
       };
     }
     let ident = base.ident(identifier);
+    if (ident === 'Promise' && this.emitPromisesAsFutures) {
+      return {name: this.maybeAddTypeArguments('Future', options)};
+    }
     let symbol: ts.Symbol = this.getSymbolAtLocation(identifier);
     let declaration = this.getSymbolDeclaration(symbol, identifier);
     if (symbol && symbol.flags & ts.SymbolFlags.TypeParameter) {
