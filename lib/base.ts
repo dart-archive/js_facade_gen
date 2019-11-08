@@ -307,6 +307,31 @@ export function isInsideConstExpr(node: ts.Node): boolean {
   return isConstCall(<ts.CallExpression>getAncestor(node, ts.SyntaxKind.CallExpression));
 }
 
+export function getModuleBlock(moduleDecl: ts.ModuleDeclaration): ts.ModuleBlock {
+  while (ts.isModuleDeclaration(moduleDecl.body)) {
+    moduleDecl = moduleDecl.body;
+  }
+  if (ts.isModuleBlock(moduleDecl.body)) {
+    return moduleDecl.body;
+  } else {
+    throw new Error('Module body must be a module block.');
+  }
+}
+
+/**
+ * Determine the full module name including dots.
+ *
+ * e.g. returns 'foo.bar' for a declaration of namespace or module foo.bar
+ */
+export function getModuleName(moduleDecl: ts.ModuleDeclaration): string {
+  let name = moduleDecl.name.text;
+  while (ts.isModuleDeclaration(moduleDecl.body)) {
+    moduleDecl = moduleDecl.body;
+    name += '.' + moduleDecl.name.text;
+  }
+  return name;
+}
+
 export function formatType(s: string, comment: string, options: TypeDisplayOptions): string {
   if (!comment || options.hideComment) {
     return s;

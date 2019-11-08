@@ -49,13 +49,11 @@ function hasVarArgs(parameters: ts.ParameterDeclaration[]): boolean {
  * Path: m1.m2.foo
  */
 function fullJsPath(node: base.NamedDeclaration): string {
-  let parts: Array<string> = [base.ident(node.name)];
+  const parts: Array<string> = [base.ident(node.name)];
   let p: ts.Node = node.parent;
   while (p != null) {
-    let kind = p.kind;
-    if (kind === ts.SyntaxKind.ModuleDeclaration || kind === ts.SyntaxKind.InterfaceDeclaration ||
-        kind === ts.SyntaxKind.ClassDeclaration) {
-      parts.unshift(base.ident((<base.NamedDeclaration>p).name));
+    if (ts.isModuleDeclaration(p) || ts.isInterfaceDeclaration(p) || ts.isClassDeclaration(p)) {
+      parts.unshift(base.ident(p.name));
     }
     p = p.parent;
   }
@@ -97,12 +95,12 @@ export class NameRewriter {
   constructor(private fc: FacadeConverter) {}
 
   private computeName(node: base.NamedDeclaration): DartNameRecord {
-    let fullPath = fullJsPath(node);
+    const fullPath = fullJsPath(node);
     if (this.dartTypes.has(fullPath)) {
       return this.dartTypes.get(fullPath);
     }
-    let sourceFile = <ts.SourceFile>base.getAncestor(node, ts.SyntaxKind.SourceFile);
-    let fileName = sourceFile.fileName;
+    const sourceFile = <ts.SourceFile>base.getAncestor(node, ts.SyntaxKind.SourceFile);
+    const fileName = sourceFile.fileName;
     let library: DartLibrary;
     if (this.libraries.has(fileName)) {
       library = this.libraries.get(fileName);
@@ -110,7 +108,7 @@ export class NameRewriter {
       library = new DartLibrary(fileName);
       this.libraries.set(fileName, library);
     }
-    let parts = fullPath.split('.');
+    const parts = fullPath.split('.');
     for (let i = parts.length - 1; i >= 0; i--) {
       // Find a unique name by including more of the module hierarchy in the
       // name. This is an arbitrary but hopefully unsurprising scheme to

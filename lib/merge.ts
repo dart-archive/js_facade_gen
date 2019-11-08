@@ -248,31 +248,17 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter, expli
 
   // Merge top level modules.
   for (let i = 0; i < f.statements.length; ++i) {
-    let statement = f.statements[i];
-    if (statement.kind !== ts.SyntaxKind.ModuleDeclaration) continue;
-    let moduleDecl = <ts.ModuleDeclaration>statement;
-    let name = moduleDecl.name.text;
+    const statement = f.statements[i];
+    if (!ts.isModuleDeclaration(statement)) {
+      continue;
+    }
+    const moduleDecl: ts.ModuleDeclaration = statement;
+    const name = base.getModuleName(moduleDecl);
+    const moduleBlock = base.getModuleBlock(moduleDecl);
     if (modules.has(name)) {
-      let srcBody = modules.get(name).body;
-      let srcBodyBlock: ts.ModuleBlock;
+      const srcBodyBlock = base.getModuleBlock(modules.get(name));
 
-      if (srcBody.kind !== ts.SyntaxKind.ModuleBlock) {
-        throw 'Module body must be a module block.';
-      }
-      srcBodyBlock = <ts.ModuleBlock>srcBody;
-
-      let body = moduleDecl.body;
-      if (body.kind === ts.SyntaxKind.ModuleBlock) {
-        let bodyBlock = <ts.ModuleBlock>body;
-        Array.prototype.push.apply(srcBodyBlock.statements, bodyBlock.statements);
-      } else {
-        // moduleDecl.body is a ModuleDeclaration.
-        // Small hack to get around NodeArrays being readonly
-        Array.prototype.push.call(srcBodyBlock.statements, moduleDecl.body);
-      }
-
-      Array.prototype.splice.call(f.statements, i, 1);
-      i--;
+      Array.prototype.push.apply(srcBodyBlock.statements, moduleBlock.statements);
     } else {
       modules.set(name, moduleDecl);
     }
