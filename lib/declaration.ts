@@ -49,7 +49,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   }
 
   getJsPath(node: ts.Node, suppressUnneededPaths: boolean): string {
-    let path: Array<String> = [];
+    const path: Array<String> = [];
     let moduleDecl =
         base.getAncestor(node, ts.SyntaxKind.ModuleDeclaration) as ts.ModuleDeclaration;
     while (moduleDecl != null) {
@@ -75,7 +75,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     }
 
     if (ts.isModuleDeclaration(node)) {
-      path.push(node.name.text);
+      path.push(base.getModuleName(node));
     } else if (ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)) {
       // Already handled by call to getEnclosingClass.
     } else if (ts.isEnumDeclaration(node)) {
@@ -439,16 +439,18 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   visitNode(node: ts.Node): boolean {
     switch (node.kind) {
       case ts.SyntaxKind.ModuleDeclaration:
-        let moduleDecl = <ts.ModuleDeclaration>node;
-        if (moduleDecl.name.text.slice(0, 2) === '..') {
+        const moduleDecl = <ts.ModuleDeclaration>node;
+        const moduleName = base.getModuleName(moduleDecl);
+        const moduleBlock = base.getModuleBlock(moduleDecl);
+        if (moduleName.slice(0, 2) === '..') {
           this.emit(
               '\n// Library augmentation not allowed by Dart. Ignoring augmentation of ' +
               moduleDecl.name.text + '\n');
           break;
         }
-        this.emit('\n// Module ' + moduleDecl.name.text + '\n');
-        this.visit(moduleDecl.body);
-        this.emit('\n// End module ' + moduleDecl.name.text + '\n');
+        this.emit('\n// Module ' + moduleName + '\n');
+        this.visit(moduleBlock);
+        this.emit('\n// End module ' + moduleName + '\n');
         break;
       case ts.SyntaxKind.ExportKeyword:
         // TODO(jacobr): perhaps add a specific Dart annotation to indicate

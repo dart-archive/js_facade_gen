@@ -715,7 +715,7 @@ interface XStatic {
   foo();
 }
 
-declare module Foo {
+declare namespace Foo {
   declare var X: XStatic;
 }
 `).to.equal(`@JS("Foo.X")

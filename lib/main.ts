@@ -189,10 +189,10 @@ export class Transpiler {
     });
 
     sourceFiles.forEach((f: ts.SourceFile) => {
-      let dartCode = this.translate(f);
+      const dartCode = this.translate(f);
 
       if (destination) {
-        let outputFile = this.getOutputPath(path.resolve(f.fileName), destination);
+        const outputFile = this.getOutputPath(path.resolve(f.fileName), destination);
         console.log('Output file:', outputFile);
         mkdirP(path.dirname(outputFile));
         fs.writeFileSync(outputFile, dartCode);

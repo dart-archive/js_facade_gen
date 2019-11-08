@@ -677,10 +677,10 @@ class Color {
 describe('renames', () => {
   it('should support class renames', () => {
     expectTranslate(`
-declare module m1 {
+declare namespace m1 {
   interface A { x(); }
 }
-declare module m2 {
+declare namespace m2 {
   interface A { y(); }
 }
 `).to.equal(`// Module m1
@@ -701,10 +701,33 @@ abstract class m2_A {
 
 // End module m2`);
     expectTranslate(`
-declare module m1 {
+    declare namespace foo.m1 {
+      function x(): number;
+    }
+    declare namespace foo.m2 {
+      function x(): string;
+    }
+    declare namespace m2 {
+      function x(): string[];
+    }`).to.equal(`// Module foo.m1
+@JS("foo.m1.x")
+external num x();
+// End module foo.m1
+
+// Module foo.m2
+@JS("foo.m2.x")
+external String m2_x();
+// End module foo.m2
+
+// Module m2
+@JS("m2.x")
+external List<String> x2();
+// End module m2`);
+    expectTranslate(`
+declare namespace m1 {
   class A { constructor(x); }
 }
-declare module m2 {
+declare namespace m2 {
   class A { constructor(y); }
 }`).to.equal(`// Module m1
 @JS("m1.A")
@@ -726,10 +749,10 @@ class m2_A {
 
 // End module m2`);
     expectTranslate(`
-declare module m1 {
+declare namespace m1 {
   class A { constructor(x:m2.A); }
 }
-declare module m2 {
+declare namespace m2 {
   class A { constructor(y:m1.A); }
 }
 `).to.equal(`// Module m1
@@ -754,10 +777,10 @@ class m2_A {
   });
   it('should support member renames', () => {
     expectTranslate(`
-declare module m1 {
+declare namespace m1 {
   interface A { x(); }
 }
-declare module m2 {
+declare namespace m2 {
   export function A(x:m1.A);
 }`).to.equal(`// Module m1
 @anonymous
@@ -776,10 +799,10 @@ external m2_A(A x);
 
   it('handle class renames in type declarations', () => {
     expectTranslate(`
-declare module m1 {
+declare namespace m1 {
   interface A { x(); }
 }
-declare module m2 {
+declare namespace m2 {
   interface A { y(); }
 }
 export function register(x:m2.A);
@@ -803,18 +826,18 @@ abstract class m2_A {
 @JS()
 external register(m2_A x);`);
     expectTranslate(`
-declare module m1 {
-  module foo {
+declare namespace m1 {
+  namespace foo {
     interface A { x(); }
   }
 }
-declare module m2 {
-  module foo {
+declare namespace m2 {
+  namespace foo {
     interface A { y(); }
   }
 }
-declare module m3 {
-  module foo {
+declare namespace m3 {
+  namespace foo {
     interface A { z(); }
   }
 }
@@ -861,10 +884,10 @@ abstract class m3_foo_A {
 external register(foo_A y, m3_foo_A z);`);
 
     expectTranslate(`
-declare module m1 {
+declare namespace m1 {
   interface A { x(); }
 }
-declare module m2 {
+declare namespace m2 {
   interface A { y(); }
 }
 export function register(x:m1.A);
