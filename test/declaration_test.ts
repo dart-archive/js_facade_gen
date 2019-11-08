@@ -258,15 +258,17 @@ class X {
 }`);
     });
     it('should emit extension methods to return Futures from methods that return Promises', () => {
-      expectTranslate(`declare interface MyMath {
+      expectTranslate(`declare class MyMath {
         randomInRange(start: number, end: number): Promise<number>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
-abstract class MyMath {}
+class MyMath {
+  // @Ignore
+  MyMath.fakeConstructor$();
+}
 
-@JS('MyMath')
+@JS("MyMath")
 abstract class _MyMath {
   external Promise<num> randomInRange(num start, num end);
 }
@@ -285,15 +287,17 @@ abstract class Promise<T> {
       void executor(void resolve(T result), Function reject));
   external Promise then(void onFulfilled(T result), [Function onRejected]);
 }`);
-      expectTranslate(`declare interface X<T> {
+      expectTranslate(`declare class X<T> {
         f(a: T): Promise<T>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
-abstract class X<T> {}
+class X<T> {
+  // @Ignore
+  X.fakeConstructor$();
+}
 
-@JS('X')
+@JS("X")
 abstract class _X<T> {
   external Promise<T> f(T a);
 }
@@ -312,27 +316,29 @@ abstract class Promise<T> {
       void executor(void resolve(T result), Function reject));
   external Promise then(void onFulfilled(T result), [Function onRejected]);
 }`);
-      expectTranslate(`declare interface Y {
+      expectTranslate(`declare class Y {
         a: number;
       }
       
-      declare interface Z extends Y {
+      declare class Z extends Y {
         f(): Promise<string>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
-abstract class Y {
+class Y {
+  // @Ignore
+  Y.fakeConstructor$();
   external num get a;
   external set a(num v);
-  external factory Y({num a});
 }
 
-@anonymous
 @JS()
-abstract class Z implements Y {}
+class Z extends Y {
+  // @Ignore
+  Z.fakeConstructor$() : super.fakeConstructor$();
+}
 
-@JS('Z')
+@JS("Z")
 abstract class _Z {
   external Promise<String> f();
 }
@@ -351,16 +357,18 @@ abstract class Promise<T> {
       void executor(void resolve(T result), Function reject));
   external Promise then(void onFulfilled(T result), [Function onRejected]);
 }`);
-      expectTranslate(`declare interface X {
+      expectTranslate(`declare class X {
         f(a: string): Promise<number>;
         f(a: string, b: number): Promise<number>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
-abstract class X {}
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+}
 
-@JS('X')
+@JS("X")
 abstract class _X {
   /*external Promise<num> f(String a);*/
   /*external Promise<num> f(String a, num b);*/
@@ -384,17 +392,19 @@ abstract class Promise<T> {
       void executor(void resolve(T result), Function reject));
   external Promise then(void onFulfilled(T result), [Function onRejected]);
 }`);
-      expectTranslate(`declare interface X {
+      expectTranslate(`declare class X {
         f(a: string): Promise<number>;
         f(a: number, b: number): Promise<number>;
         f(c: number[]): Promise<number>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
-abstract class X {}
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+}
 
-@JS('X')
+@JS("X")
 abstract class _X {
   /*external Promise<num> f(String a);*/
   /*external Promise<num> f(num a, num b);*/
@@ -523,18 +533,18 @@ class X {
 }`);
     });
     it('should emit extension getters/setters that expose Futures in place of Promises', () => {
-      expectTranslate(`interface MyMath {
+      expectTranslate(`declare class MyMath {
         readonly two: Promise<num>;
         three: Promise<num>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
-abstract class MyMath {
-  external factory MyMath({Promise<num> two, Promise<num> three});
+class MyMath {
+  // @Ignore
+  MyMath.fakeConstructor$();
 }
 
-@JS('MyMath')
+@JS("MyMath")
 abstract class _MyMath {
   external Promise<num> get two;
   external Promise<num> get three;
@@ -569,17 +579,17 @@ abstract class Promise<T> {
       void executor(void resolve(T result), Function reject));
   external Promise then(void onFulfilled(T result), [Function onRejected]);
 }`);
-      expectTranslate(`interface X<T> {
+      expectTranslate(`declare class X<T> {
         aPromise: Promise<T>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
-abstract class X<T> {
-  external factory X({Promise<T> aPromise});
+class X<T> {
+  // @Ignore
+  X.fakeConstructor$();
 }
 
-@JS('X')
+@JS("X")
 abstract class _X<T> {
   external Promise<T> get aPromise;
   external set aPromise(Promise<T> v);
@@ -640,7 +650,77 @@ abstract class X {
   external factory X({String x, y});
 }`);
   });
+  it('should emit extension methods to return Futures from methods that return Promises',
+     () => {
+       expectTranslate(`declare interface X<T> {
+        f(a: T): Promise<T>;
+      }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
+@anonymous
+@JS()
+abstract class X<T> {}
+
+@anonymous
+@JS()
+abstract class _X<T> {
+  external Promise<T> f(T a);
+}
+
+extension XExtensions<T> on X<T> {
+  Future<T> f(T a) {
+    final Object t = this;
+    final _X<T> tt = t;
+    return promiseToFuture(tt.f(a));
+  }
+}
+
+@JS()
+abstract class Promise<T> {
+  external factory Promise(
+      void executor(void resolve(T result), Function reject));
+  external Promise then(void onFulfilled(T result), [Function onRejected]);
+}`);
+       expectTranslate(`declare interface Y {
+        a: number;
+      }
+      
+      declare interface Z extends Y {
+        f(): Promise<string>;
+      }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
+
+@anonymous
+@JS()
+abstract class Y {
+  external num get a;
+  external set a(num v);
+  external factory Y({num a});
+}
+
+@anonymous
+@JS()
+abstract class Z implements Y {}
+
+@anonymous
+@JS()
+abstract class _Z {
+  external Promise<String> f();
+}
+
+extension ZExtensions on Z {
+  Future<String> f() {
+    final Object t = this;
+    final _Z tt = t;
+    return promiseToFuture(tt.f());
+  }
+}
+
+@JS()
+abstract class Promise<T> {
+  external factory Promise(
+      void executor(void resolve(T result), Function reject));
+  external Promise then(void onFulfilled(T result), [Function onRejected]);
+}`);
+     });
   it('handles interface properties with names that are invalid in Dart ', () => {
     expectTranslate(`interface X { '!@#$%^&*': string; }`).to.equal(`@anonymous
 @JS()
@@ -770,7 +850,9 @@ abstract class Y {
   external static set d(String v);
 }`);
   });
+});
 
+describe('flags', () => {
   // If the lib.dom.d.ts file is compiled, it creates conflicting interface definitions which causes
   // a problem for variable declarations that we have merged into classes. The main problem was that
   // when the declaration transpiler performed the notSimpleBagOfProperties check, it was checking
