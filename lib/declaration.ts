@@ -107,7 +107,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     return !interfaceDecl.classLikeVariableDeclaration;
   }
 
-  maybeEmitJsAnnotation(node: ts.Node) {
+  maybeEmitJsAnnotation(node: ts.Node, {suppressUnneededPaths}: {suppressUnneededPaths: boolean}) {
     // No need to emit the annotations as an entity outside the code comment
     // will already have the same annotation.
     if (this.insideCodeComment) return;
@@ -117,7 +117,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       this.emit('@JS()');
       return;
     }
-    let name: String = this.getJsPath(node, true);
+    const name = this.getJsPath(node, suppressUnneededPaths);
     this.emit('@JS(');
     if (name.length > 0) {
       this.emit(`"${name}"`);
@@ -467,7 +467,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         // In JS interop mode we have to treat enums as JavaScript classes
         // with static members for each enum constant instead of as first
         // class enums.
-        this.maybeEmitJsAnnotation(decl);
+        this.maybeEmitJsAnnotation(decl, {suppressUnneededPaths: true});
         this.emit('class');
         this.emit(decl.name.text);
         this.emit('{');
@@ -648,7 +648,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
           this.emit('\n/* Skipping class ' + base.ident(classDecl.name) + '*/\n');
           break;
         }
-        this.maybeEmitJsAnnotation(node);
+        this.maybeEmitJsAnnotation(node, {suppressUnneededPaths: true});
 
         if (isInterface || this.hasModifierFlag(classDecl, ts.ModifierFlags.Abstract)) {
           this.visitClassLike('abstract class', classDecl);
@@ -905,7 +905,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       const visitNameOfExtensions = () => {
         this.visitClassLikeName(name, typeParameters, ts.createNodeArray(), true);
       };
-      this.emitMembersAsExtensions(name, visitName, visitNameOfExtensions, this.promiseMembers);
+      this.emitMembersAsExtensions(decl, visitName, visitNameOfExtensions, this.promiseMembers);
       this.promiseMembers = [];
     }
     this.emit('\n');
@@ -948,7 +948,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       case ts.SyntaxKind.PropertySignature:
       case ts.SyntaxKind.FunctionDeclaration:
         if (!base.getEnclosingClass(decl)) {
-          this.maybeEmitJsAnnotation(decl);
+          this.maybeEmitJsAnnotation(decl, {suppressUnneededPaths: true});
         }
         this.emit('external');
         break;
@@ -985,7 +985,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     const {name, type} = declaration;
 
     if (emitJsAnnotation) {
-      this.maybeEmitJsAnnotation(declaration);
+      this.maybeEmitJsAnnotation(declaration, {suppressUnneededPaths: true});
     }
     if (isExternal) {
       this.emit('external');
@@ -1021,12 +1021,12 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   }
 
   private emitMembersAsExtensions(
-      className: ts.Identifier, visitClassName: () => void, visitNameOfExtensions: () => void,
-      methods: ts.SignatureDeclaration[]) {
+      classDecl: ts.ObjectTypeDeclaration, visitClassName: () => void,
+      visitNameOfExtensions: () => void, methods: ts.SignatureDeclaration[]) {
     this.visitPromises = true;
     this.fc.emitPromisesAsFutures = false;
     // Emit private class containing external methods
-    this.emit(`@JS('${base.ident(className)}')`);
+    this.maybeEmitJsAnnotation(classDecl, {suppressUnneededPaths: false});
     this.emit(`abstract class _`);
     visitClassName();
     this.emit('{');
