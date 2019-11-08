@@ -7,8 +7,12 @@ import {MergedMember, MergedParameter, MergedType, MergedTypeParameters} from '.
 
 const PRIVATE_CLASS_INSTANCE_IN_EXTENSIONS = 'tt';
 
-type emitGetterOrSetterOptions = {
-  mode: 'getter'|'setter',
+const enum emitPropertyMode {
+  getter,
+  setter
+}
+type emitPropertyOptions = {
+  mode: emitPropertyMode,
   declaration: ts.PropertyDeclaration|ts.PropertySignature|ts.VariableDeclaration|
              ts.ParameterDeclaration,
   emitJsAnnotation: boolean,
@@ -563,11 +567,19 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         // We have to handle variable declarations differently in the case of JS
         // interop because Dart does not support external variables.
         let varDecl = <ts.VariableDeclaration>node;
-        this.emitGetterOrSetter(
-            {mode: 'getter', declaration: varDecl, emitJsAnnotation: true, isExternal: true});
+        this.emitProperty({
+          mode: emitPropertyMode.getter,
+          declaration: varDecl,
+          emitJsAnnotation: true,
+          isExternal: true
+        });
         if (!this.hasNodeFlag(varDecl, ts.NodeFlags.Const)) {
-          this.emitGetterOrSetter(
-              {mode: 'setter', declaration: varDecl, emitJsAnnotation: true, isExternal: true});
+          this.emitProperty({
+            mode: emitPropertyMode.setter,
+            declaration: varDecl,
+            emitJsAnnotation: true,
+            isExternal: true
+          });
         }
       } break;
       case ts.SyntaxKind.StringLiteral: {
@@ -826,14 +838,22 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     // TODO(derekx): Properties with names that contain special characters are currently ignored by
     // commenting them out. Determine a way to rename these properties in the future.
     this.maybeWrapInCodeComment({shouldWrap: !hasValidName, newLine: true}, () => {
-      this.emitGetterOrSetter(
-          {mode: 'getter', declaration: decl, emitJsAnnotation: false, isExternal: true});
+      this.emitProperty({
+        mode: emitPropertyMode.getter,
+        declaration: decl,
+        emitJsAnnotation: false,
+        isExternal: true
+      });
     });
 
     if (!base.isReadonly(decl)) {
       this.maybeWrapInCodeComment({shouldWrap: !hasValidName, newLine: true}, () => {
-        this.emitGetterOrSetter(
-            {mode: 'setter', declaration: decl, emitJsAnnotation: false, isExternal: true});
+        this.emitProperty({
+          mode: emitPropertyMode.setter,
+          declaration: decl,
+          emitJsAnnotation: false,
+          isExternal: true
+        });
       });
     }
   }
@@ -958,8 +978,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.emitNoSpace(';');
   }
 
-  private emitGetterOrSetter({mode, declaration, emitJsAnnotation, isExternal, emitBody}:
-                                 emitGetterOrSetterOptions) {
+  private emitProperty({mode, declaration, emitJsAnnotation, isExternal, emitBody}:
+                           emitPropertyOptions) {
     const {name, type} = declaration;
 
     if (emitJsAnnotation) {
@@ -971,11 +991,11 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     if (base.isStatic(declaration)) {
       this.emit('static');
     }
-    if (mode === 'getter') {
+    if (mode === emitPropertyMode.getter) {
       this.visit(type);
       this.emit('get');
       this.visitName(name);
-    } else if (mode === 'setter') {
+    } else if (mode === emitPropertyMode.setter) {
       this.emit('set');
       this.visitName(name);
       this.emitNoSpace('(');
@@ -1021,8 +1041,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     for (const merged of mergedMembers) {
       const declaration = merged.mergedDeclaration;
       if (ts.isPropertyDeclaration(declaration) || ts.isPropertySignature(declaration)) {
-        this.emitGetterOrSetter({
-          mode: 'getter',
+        this.emitProperty({
+          mode: emitPropertyMode.getter,
           declaration,
           emitJsAnnotation: false,
           isExternal: false,
@@ -1032,8 +1052,8 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
           }
         });
         if (!base.isReadonly(declaration)) {
-          this.emitGetterOrSetter({
-            mode: 'setter',
+          this.emitProperty({
+            mode: emitPropertyMode.setter,
             declaration,
             emitJsAnnotation: false,
             isExternal: false,
