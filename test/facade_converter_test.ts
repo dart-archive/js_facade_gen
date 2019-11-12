@@ -193,6 +193,65 @@ external set x(X v);`);
   });
 
   describe('special identifiers', () => {
+    // For the Dart keyword list see
+    // https://dart.dev/guides/language/language-tour#keywords
+    it('always renames identifiers that are reserved keywords in Dart', () => {
+      expectTranslate(`declare var rethrow: number;`).to.equal(`@JS()
+external num get JS$rethrow;
+@JS()
+external set JS$rethrow(num v);`);
+
+      expectTranslate(`class X { while: string; }`).to.equal(`@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external String get JS$while;
+  external set JS$while(String v);
+}`);
+    });
+
+    it('only renames built-in keywords when they are used as class or type names', () => {
+      expectTranslate(`declare var abstract: number;`).to.equal(`@JS()
+external num get abstract;
+@JS()
+external set abstract(num v);`);
+
+      expectTranslate(`declare function get(): void;`).to.equal(`@JS()
+external void get();`);
+
+      expectTranslate(`interface X { abstract: string; }`).to.equal(`@anonymous
+@JS()
+abstract class X {
+  external String get abstract;
+  external set abstract(String v);
+  external factory X({String abstract});
+}`);
+
+      expectTranslate(`interface X { get: number; }`).to.equal(`@anonymous
+@JS()
+abstract class X {
+  external num get get;
+  external set get(num v);
+  external factory X({num get});
+}`);
+
+      expectTranslate(`interface abstract { a: number; }`).to.equal(`@anonymous
+@JS()
+abstract class JS$abstract {
+  external num get a;
+  external set a(num v);
+  external factory JS$abstract({num a});
+}`);
+
+      expectTranslate(`class covariant { x: boolean; }`).to.equal(`@JS()
+class JS$covariant {
+  // @Ignore
+  JS$covariant.fakeConstructor$();
+  external bool get x;
+  external set x(bool v);
+}`);
+    });
+
     it('preserves names that begin with two underscores', () => {
       expectWithTypes(`export function f(__a: number): boolean;
 export function f(__a: string): boolean;`)

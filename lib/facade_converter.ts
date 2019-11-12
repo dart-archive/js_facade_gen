@@ -16,15 +16,52 @@ const FACADE_NODE_MODULES_PREFIX = /^(\.\.\/)*node_modules\//;
 export const DART_RESERVED_NAME_PREFIX = 'JS$';
 
 /**
+ * Returns whether or not the given identifier is valid for the type of object it refers to. Certain
+ * reserved keywords cannot ever be used as identifiers. Other keywords, the built-in identifiers,
+ * cannot be used as class or type names, but can be used elsewhere.
+ */
+export function isValidIdentifier(identifier: ts.DeclarationName|ts.PropertyName): boolean {
+  // Check if this identifier is being used as a class or type name
+  const parent = identifier.parent;
+
+  const isClassOrTypeName = parent &&
+      (ts.isClassDeclaration(parent) || ts.isInterfaceDeclaration(parent) || ts.isTypeNode(parent));
+
+  const text = base.ident(identifier);
+  if (FacadeConverter.DART_RESERVED_WORDS.has(text)) {
+    return false;
+  }
+  if (isClassOrTypeName && FacadeConverter.DART_BUILT_IN_IDENTIFIERS.has(text)) {
+    return false;
+  }
+
+  const validIdentifierRegExp = new RegExp('^[^0-9_][a-zA-Z0-9_$]*$');
+  return validIdentifierRegExp.test(text);
+}
+
+export function identifierCanBeRenamed(identifier: ts.DeclarationName|ts.PropertyName): boolean {
+  const text = base.ident(identifier);
+  const renamableRegExp = new RegExp('^[a-zA-Z0-9_$]*$');
+  return renamableRegExp.test(text);
+}
+
+/**
  * Fix TypeScript identifier names that are not valid Dart names by adding JS$ to the start of the
  * identifier name.
  */
-export function fixupIdentifierName(text: string): string {
-  return (FacadeConverter.DART_RESERVED_WORDS.indexOf(text) !== -1 ||
-          FacadeConverter.DART_OTHER_KEYWORDS.indexOf(text) !== -1 ||
-          !base.isValidDartIdentifier(text)) ?
-      DART_RESERVED_NAME_PREFIX + text :
-      text;
+export function fixupIdentifierName(node: ts.DeclarationName|ts.PropertyName): string {
+  const text = base.ident(node);
+
+  if (isValidIdentifier(node)) {
+    // If the name is already valid, it does not need to be changed
+    return text;
+  } else if (identifierCanBeRenamed(node)) {
+    // If the identifier will become valid by prepending JS$ to it, return that name
+    return DART_RESERVED_NAME_PREFIX + text;
+  }
+  // If the name cannot be renamed to be valid, it remains unmodified. The Declaration transpiler
+  // should have detected the invalid name and wrapped it in a code comment.
+  return text;
 }
 
 function hasVarArgs(parameters: ts.ParameterDeclaration[]): boolean {
@@ -114,7 +151,9 @@ export class NameRewriter {
       // name. This is an arbitrary but hopefully unsurprising scheme to
       // generate unique names. There may be classes or members with conflicting
       // names due to a single d.ts file containing multiple modules.
-      let candidateName = fixupIdentifierName(parts.slice(i).join('_'));
+      const candidateIdentifier = ts.createIdentifier(parts.slice(i).join('_'));
+      candidateIdentifier.parent = node;
+      const candidateName = fixupIdentifierName(candidateIdentifier);
       if (library.addName(candidateName)) {
         // Able to add name to library.
         let ret = new DartNameRecord(node, candidateName, library);
@@ -210,18 +249,18 @@ function removeResolvedTypeArguments(options: TypeDisplayOptions): TypeDisplayOp
 export class FacadeConverter extends base.TranspilerBase {
   tc: ts.TypeChecker;
   // For the Dart keyword list see
-  // https://www.dartlang.org/docs/dart-up-and-running/ch02.html#keywords
-  static DART_RESERVED_WORDS =
+  // https://dart.dev/guides/language/language-tour#keywords
+  static DART_RESERVED_WORDS: Set<string> = new Set(
       ('assert break case catch class const continue default do else enum extends false final ' +
-       'finally for if in is new null rethrow return super switch this throw true try let void ' +
+       'finally for if in is new null rethrow return super switch this throw true try let var void ' +
        'while with')
-          .split(/ /);
+          .split(/ /));
 
-  // These are the built-in and limited keywords.
-  static DART_OTHER_KEYWORDS =
-      ('abstract as async await covariant deferred dynamic export external factory Function get implements import ' +
-       'library mixin operator part set static sync typedef yield call')
-          .split(/ /);
+  // These are the built-in identifiers.
+  static DART_BUILT_IN_IDENTIFIERS: Set<string> = new Set(
+      ('abstract as covariant deferred dynamic export external factory Function get implements import interface' +
+       'library mixin operator part set static typedef')
+          .split(/ /));
 
   private candidateTypes: Set<string> = new Set();
   private typingsRootRegex: RegExp;

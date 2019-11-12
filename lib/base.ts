@@ -87,19 +87,16 @@ export interface ExtendedInterfaceDeclaration extends ts.InterfaceDeclaration {
 }
 
 export function ident(n: ts.Node): string {
-  if (!n) return null;
-  if (ts.isIdentifier(n)) return n.text;
-  if (n.kind === ts.SyntaxKind.FirstLiteralToken) return (n as ts.LiteralLikeNode).text;
+  if (ts.isIdentifier(n) || ts.isStringLiteralLike(n)) {
+    return n.text;
+  }
   if (ts.isQualifiedName(n)) {
-    let leftName = ident(n.left);
-    if (leftName) return leftName + '.' + ident(n.right);
+    const leftName = ident(n.left);
+    if (leftName) {
+      return leftName + '.' + ident(n.right);
+    }
   }
   return null;
-}
-
-export function isValidDartIdentifier(text: string) {
-  const validIdentifierRegExp = new RegExp('^[^0-9_][a-zA-Z0-9_$]*$');
-  return validIdentifierRegExp.test(text);
 }
 
 export function isFunctionTypedefLikeInterface(ifDecl: ts.InterfaceDeclaration): boolean {
