@@ -429,7 +429,7 @@ export function normalizeSourceFile(f: ts.SourceFile, fc: FacadeConverter, expli
       undefined {
     const members = classLike.members as ts.NodeArray<ts.ClassElement>;
     return members.find((member: ts.ClassElement) => {
-      if (base.ident(member.name) === propName) {
+      if (member.name && base.ident(member.name) === propName) {
         return true;
       }
     });

@@ -732,15 +732,15 @@ abstract class X {
     expectTranslate(`interface X { '5abcde': string; }`).to.equal(`@anonymous
 @JS()
 abstract class X {
-  /*external String get 5abcde;*/
-  /*external set 5abcde(String v);*/
+  external String get JS$5abcde;
+  external set JS$5abcde(String v);
   external factory X();
 }`);
     expectTranslate(`interface X { '_wxyz': string; }`).to.equal(`@anonymous
 @JS()
 abstract class X {
-  /*external String get _wxyz;*/
-  /*external set _wxyz(String v);*/
+  external String get JS$_wxyz;
+  external set JS$_wxyz(String v);
   external factory X();
 }`);
     expectTranslate(`interface X { 'foo_34_81$': string; }`).to.equal(`@anonymous

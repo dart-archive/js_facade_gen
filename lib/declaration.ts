@@ -1,7 +1,7 @@
 import * as ts from 'typescript';
 
 import * as base from './base';
-import {FacadeConverter} from './facade_converter';
+import {FacadeConverter, identifierCanBeRenamed, isValidIdentifier} from './facade_converter';
 import {Transpiler} from './main';
 import {MergedMember, MergedParameter, MergedType, MergedTypeParameters} from './merge';
 
@@ -240,8 +240,9 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     this.visitMergingOverloads(decl.members);
 
     if (isPropertyBag) {
-      const propertiesWithValidNames = properties.filter(
-          p => !ts.isStringLiteral(p.name) || base.isValidDartIdentifier(p.name.text));
+      const propertiesWithValidNames = properties.filter((p) => {
+        return isValidIdentifier(p.name);
+      });
       this.emit('external factory');
       this.fc.visitTypeName(name);
       if (propertiesWithValidNames.length) {
@@ -584,10 +585,6 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
           });
         }
       } break;
-      case ts.SyntaxKind.StringLiteral: {
-        let sLit = <ts.LiteralExpression>node;
-        this.emit(sLit.text);
-      } break;
       case ts.SyntaxKind.CallSignature: {
         let fn = <ts.SignatureDeclaration>node;
         this.emit('external');
@@ -834,12 +831,13 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
    */
   private visitProperty(
       decl: ts.PropertyDeclaration|ts.ParameterDeclaration, isParameter?: boolean) {
-    const hasValidName =
-        !ts.isStringLiteral(decl.name) || base.isValidDartIdentifier(decl.name.text);
+    // Check if the name contains special characters other than $ and _
+    const canBeRenamed = identifierCanBeRenamed(decl.name);
 
-    // TODO(derekx): Properties with names that contain special characters are currently ignored by
-    // commenting them out. Determine a way to rename these properties in the future.
-    this.maybeWrapInCodeComment({shouldWrap: !hasValidName, newLine: true}, () => {
+    // TODO(derekx): Properties with names that contain special characters other than _ and $ are
+    // currently ignored by commenting them out. We should determine a way to rename these
+    // properties using extension members in the future.
+    this.maybeWrapInCodeComment({shouldWrap: !canBeRenamed, newLine: true}, () => {
       this.emitProperty({
         mode: emitPropertyMode.getter,
         declaration: decl,
@@ -849,7 +847,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     });
 
     if (!base.isReadonly(decl)) {
-      this.maybeWrapInCodeComment({shouldWrap: !hasValidName, newLine: true}, () => {
+      this.maybeWrapInCodeComment({shouldWrap: !canBeRenamed, newLine: true}, () => {
         this.emitProperty({
           mode: emitPropertyMode.setter,
           declaration: decl,

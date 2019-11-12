@@ -47,8 +47,8 @@ export default class TypeTranspiler extends base.TranspilerBase {
       this.visit(first.left);
       this.emit('.');
       this.visit(first.right);
-    } else if (ts.isIdentifier(node) || node.kind === ts.SyntaxKind.FirstLiteralToken) {
-      let text = fixupIdentifierName(base.ident(node));
+    } else if (ts.isIdentifier(node) || ts.isStringLiteralLike(node)) {
+      const text = fixupIdentifierName(node);
       this.emit(text);
     } else {
       return false;

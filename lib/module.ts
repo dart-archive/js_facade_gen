@@ -145,7 +145,7 @@ export default class ModuleTranspiler extends base.TranspilerBase {
     return parts.filter((p) => p.length > 0 && p !== '..')
         .map((p) => p.replace(/[^\w.]/g, '_'))
         .map((p) => p.replace(/\.dart$/, ''))
-        .map((p) => FacadeConverter.DART_RESERVED_WORDS.indexOf(p) !== -1 ? '_' + p : p)
+        .map((p) => FacadeConverter.DART_RESERVED_WORDS.has(p) ? '_' + p : p)
         .filter((p) => p.length > 0)
         .join('.');
   }
