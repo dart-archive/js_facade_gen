@@ -52,7 +52,8 @@ class X {
 }`);
   });
   it('ignore "super.x()" super method calls', () => {
-    expectTranslate('class X { y() { super.z(1); } }').to.equal(`@JS()
+    expectTranslate('class X { y() { super.z(1); } }').to.equal(`@anonymous
+@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
