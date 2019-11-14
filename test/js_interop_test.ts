@@ -73,40 +73,35 @@ external num get b;`);
 
 describe('classes', () => {
   it('should translate classes', () => {
-    expectTranslate('class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X {}').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
 }`);
   });
   it('should support extends', () => {
-    expectTranslate('class X extends Y {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X extends Y {}').to.equal(`@JS()
 class X extends Y {
   // @Ignore
   X.fakeConstructor$() : super.fakeConstructor$();
 }`);
   });
   it('should support implements', () => {
-    expectTranslate('class X implements Y, Z {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X implements Y, Z {}').to.equal(`@JS()
 class X implements Y, Z {
   // @Ignore
   X.fakeConstructor$();
 }`);
   });
   it('should support implements', () => {
-    expectTranslate('class X extends Y implements Z {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X extends Y implements Z {}').to.equal(`@JS()
 class X extends Y implements Z {
   // @Ignore
   X.fakeConstructor$() : super.fakeConstructor$();
 }`);
   });
   it('should support abstract', () => {
-    expectTranslate('abstract class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('abstract class X {}').to.equal(`@JS()
 abstract class X {
   // @Ignore
   X.fakeConstructor$();
@@ -114,16 +109,14 @@ abstract class X {
   });
   describe('members', () => {
     it('supports empty declarations', () => {
-      expectTranslate('class X { ; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { ; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
 }`);
     });
     it('supports fields', () => {
-      expectTranslate('class X { x: number; y: string; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x: number; y: string; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -132,8 +125,7 @@ class X {
   external String get y;
   external set y(String v);
 }`);
-      expectTranslate('class X { x; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -142,8 +134,7 @@ class X {
 }`);
     });
     it('ignore field initializers', () => {
-      expectTranslate('class X { x: number = 42; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x: number = 42; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -152,8 +143,7 @@ class X {
 }`);
     });
     it('supports visibility modifiers', () => {
-      expectTranslate('class X { private _x; x; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { private _x; x; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -162,8 +152,7 @@ class X {
   external get x;
   external set x(v);
 }`);
-      expectTranslate('class X { private x; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { private x; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -178,8 +167,7 @@ class X {
   external set x(v);
   external factory X(x);
 }`);
-      expectTranslate('class X { _x; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { _x; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -188,8 +176,7 @@ class X {
 }`);
     });
     it('does not support protected', () => {
-      expectTranslate('class X { protected x; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { protected x; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -207,8 +194,7 @@ class X {
 }`);
     });
     it('supports methods', () => {
-      expectTranslate('class X { x() { return 42; } }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x() { return 42; } }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -216,8 +202,7 @@ class X {
 }`);
     });
     it('supports abstract methods', () => {
-      expectTranslate('abstract class X { abstract x(); }').to.equal(`@anonymous
-@JS()
+      expectTranslate('abstract class X { abstract x(); }').to.equal(`@JS()
 abstract class X {
   // @Ignore
   X.fakeConstructor$();
@@ -225,34 +210,31 @@ abstract class X {
 }`);
     });
     it('supports method return types', () => {
-      expectTranslate('class X { x(): number { return 42; } }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x(): number { return 42; } }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
   external num x();
 }`);
-
-      expectTranslate('class X { x( a : number, b : string ) : num }').to.equal(`@anonymous
-@JS()
-class X {
-  // @Ignore
-  X.fakeConstructor$();
-  external num x(num a, String b);
-}`);
     });
     it('supports method params', () => {
-      expectTranslate('class X { x(a, b); }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x(a, b); }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
   external x(a, b);
 }`);
     });
+    it('supports method return types', () => {
+      expectTranslate('class X { x( a : number, b : string ) : num }').to.equal(`@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external num x(num a, String b);
+}`);
+    });
     it('supports get methods', () => {
-      expectTranslate('class X { get y(): number {} }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { get y(): number {} }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -266,8 +248,7 @@ class X {
 }`);
     });
     it('supports set methods', () => {
-      expectTranslate('class X { set y(n: number) {} }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { set y(n: number) {} }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -287,8 +268,7 @@ class X<T> {
   X.fakeConstructor$();
   external static X<dynamic /*T*/ > Z/*<T>*/();
 }`);
-      expectTranslate('class X<T> { Z(): X<T> {} }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X<T> { Z(): X<T> {} }').to.equal(`@JS()
 class X<T> {
   // @Ignore
   X.fakeConstructor$();
@@ -301,8 +281,7 @@ class X {
   createElement<T>(tagName: "img"): T;
   createElement<T>(tagName: "video"): T;
   createElement<T>(tagName: string): T;
-}`).to.equal(`@anonymous
-@JS()
+}`).to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -318,8 +297,7 @@ class X {
   createElement<T>(tagName: "img"): T;
   createElement<T>(tagName: "video"): T;
   createElement<V>(tagName: string): V;
-}`).to.equal(`@anonymous
-@JS()
+}`).to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -337,7 +315,6 @@ class X {
   createElement<T extends Element>(tagName: string): T;
 }`).to.equal(`import "dart:html" show ImageElement, VideoElement, Element;
 
-@anonymous
 @JS()
 class X {
   // @Ignore
@@ -373,8 +350,7 @@ class X {
   F(a:string):num;
   F(a:string, b: string|num):string;
   F(a2:string, b: string, c: num):string;
-}`).to.equal(`@anonymous
-@JS()
+}`).to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -390,8 +366,7 @@ class X {
   Y(a:string):num {};
   Y(a:string, b: num):string {};
   Y(a2:string, b: string, c: num):string {};
-}`).to.equal(`@anonymous
-@JS()
+}`).to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -408,7 +383,6 @@ class X {
   firstElement(elements: HTMLElement[]): HTMLElement;
 }`).to.equal(`import "dart:html" show ImageElement, VideoElement, HtmlElement;
 
-@anonymous
 @JS()
 class X {
   // @Ignore

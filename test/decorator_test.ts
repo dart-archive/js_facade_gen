@@ -6,44 +6,38 @@ import {expectTranslate} from './test_support';
 // ts2dart that export decorators.
 describe('ignore decorators', () => {
   it('translates plain decorators', () => {
-    expectTranslate('@A class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('@A class X {}').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
 }`);
   });
   it('ignore plain decorators applied to abstract classes', () => {
-    expectTranslate('@A abstract class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('@A abstract class X {}').to.equal(`@JS()
 abstract class X {
   // @Ignore
   X.fakeConstructor$();
 }`);
   });
   it('translates arguments', () => {
-    expectTranslate('@A(a, b) class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('@A(a, b) class X {}').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
 }`);
   });
   it('translates const arguments', () => {
-    expectTranslate('@A([1]) class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('@A([1]) class X {}').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
 }`);
-    expectTranslate('@A({"a": 1}) class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('@A({"a": 1}) class X {}').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
 }`);
-    expectTranslate('@A(new B()) class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('@A(new B()) class X {}').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -54,8 +48,7 @@ class X {
 external f();`);
   });
   it('translates on properties', () => {
-    expectTranslate('class X { @A p; }').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X { @A p; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -68,14 +61,12 @@ class X {
 external f(p);`);
   });
   it('ignore special cases @CONST', () => {
-    expectTranslate('@CONST class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('@CONST class X {}').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
 }`);
-    expectTranslate('@CONST() class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('@CONST() class X {}').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();

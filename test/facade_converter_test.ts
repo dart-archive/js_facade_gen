@@ -128,14 +128,12 @@ external Thing get t;`);
 external get x;`);
       expectWithTypes('const x = [];').to.equal(`@JS()
 external get x;`);
-      expectWithTypes(`
-class Person { constructor(); }
-const x = new Person();`)
+      expectWithTypes(`class Person {}
+                      const x = new Person();`)
           .to.equal(`@JS()
 class Person {
   // @Ignore
   Person.fakeConstructor$();
-  external factory Person();
 }
 
 @JS()
@@ -145,9 +143,7 @@ external get x;`);
 
   describe('readonly', () => {
     it('simple', () => {
-      expectWithTypes(`
-export class Person {
-  constructor();
+      expectWithTypes(`export class Person {
   readonly x: number;
   readonly y: string;
   readonly z: boolean;
@@ -155,7 +151,6 @@ export class Person {
 class Person {
   // @Ignore
   Person.fakeConstructor$();
-  external factory Person();
   external num get x;
   external String get y;
   external bool get z;
@@ -205,8 +200,7 @@ external num get JS$rethrow;
 @JS()
 external set JS$rethrow(num v);`);
 
-      expectTranslate(`class X { while: string; }`).to.equal(`@anonymous
-@JS()
+      expectTranslate(`class X { while: string; }`).to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -248,8 +242,7 @@ abstract class JS$abstract {
   external factory JS$abstract({num a});
 }`);
 
-      expectTranslate(`class covariant { x: boolean; }`).to.equal(`@anonymous
-@JS()
+      expectTranslate(`class covariant { x: boolean; }`).to.equal(`@JS()
 class JS$covariant {
   // @Ignore
   JS$covariant.fakeConstructor$();

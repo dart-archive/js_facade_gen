@@ -32,8 +32,7 @@ external get x;
 external set x(v);`);
   });
   it('allows class exports', () => {
-    expectTranslate('export class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('export class X {}').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();

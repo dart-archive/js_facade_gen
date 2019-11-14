@@ -109,8 +109,7 @@ external set a(v);`);
 * Foo bar.
 */
   bar();
-}`).to.equal(`@anonymous
-@JS()
+}`).to.equal(`@JS()
 class Foo {
   // @Ignore
   Foo.fakeConstructor$();
@@ -128,8 +127,7 @@ class Foo {
 
 // Bla.
 bar();
-}`).to.equal(`@anonymous
-@JS()
+}`).to.equal(`@JS()
 class Foo {
   // @Ignore
   Foo.fakeConstructor$();

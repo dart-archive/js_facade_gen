@@ -105,13 +105,13 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       // If we were able to associate a variable declaration with the interface definition then the
       // interface isn't actually anonymous.
       return !extendedInterfaceDecl.classLikeVariableDeclaration;
-    } else if (ts.isClassLike(node)) {
+    } else if (this.trustJSTypes && ts.isClassLike(node)) {
+      // If the trust-js-types flag is set, @anonymous tags are emitted on all classes that don't
+      // have any constructors or any static members.
       const hasConstructor = node.members.some((member: ts.TypeElement|ts.ClassElement) => {
         return ts.isConstructorDeclaration(member) || ts.isConstructSignatureDeclaration(member);
       });
       const hasStatic = node.members.some(base.isStatic);
-      // An @anonymous tag should be emitted if the class doesn't have a constructor or any static
-      // members
       return !hasConstructor && !hasStatic;
     }
     return false;
@@ -443,7 +443,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
   constructor(
       tr: Transpiler, private fc: FacadeConverter, private enforceUnderscoreConventions: boolean,
-      private promoteFunctionLikeMembers: boolean) {
+      private promoteFunctionLikeMembers: boolean, private trustJSTypes: boolean) {
     super(tr);
   }
 

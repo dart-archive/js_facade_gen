@@ -113,40 +113,35 @@ external num get A;`);
 
 describe('classes', () => {
   it('should translate classes', () => {
-    expectTranslate('class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X {}').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
 }`);
   });
   it('should support extends', () => {
-    expectTranslate('class X extends Y {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X extends Y {}').to.equal(`@JS()
 class X extends Y {
   // @Ignore
   X.fakeConstructor$() : super.fakeConstructor$();
 }`);
   });
   it('should support implements', () => {
-    expectTranslate('class X implements Y, Z {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X implements Y, Z {}').to.equal(`@JS()
 class X implements Y, Z {
   // @Ignore
   X.fakeConstructor$();
 }`);
   });
   it('should support implements', () => {
-    expectTranslate('class X extends Y implements Z {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X extends Y implements Z {}').to.equal(`@JS()
 class X extends Y implements Z {
   // @Ignore
   X.fakeConstructor$() : super.fakeConstructor$();
 }`);
   });
   it('should support abstract', () => {
-    expectTranslate('abstract class X {}').to.equal(`@anonymous
-@JS()
+    expectTranslate('abstract class X {}').to.equal(`@JS()
 abstract class X {
   // @Ignore
   X.fakeConstructor$();
@@ -155,16 +150,14 @@ abstract class X {
 
   describe('members', () => {
     it('supports empty declarations', () => {
-      expectTranslate('class X { ; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { ; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
 }`);
     });
     it('supports fields', () => {
-      expectTranslate('class X { x: number; y: string; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x: number; y: string; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -173,8 +166,7 @@ class X {
   external String get y;
   external set y(String v);
 }`);
-      expectTranslate('class X { x; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -188,7 +180,6 @@ class X {
           'class X { x: FnDef; }')
           .to.equal(`typedef String FnDef(num y);
 
-@anonymous
 @JS()
 class X {
   // @Ignore
@@ -198,8 +189,7 @@ class X {
 }`);
     });
     it('supports field initializers', () => {
-      expectTranslate('class X { x: number = 42; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x: number = 42; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -209,8 +199,7 @@ class X {
     });
     // TODO(martinprobst): Re-enable once Angular is migrated to TS.
     it('supports visibility modifiers', () => {
-      expectTranslate('class X { private _x; x; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { private _x; x; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -219,8 +208,7 @@ class X {
   external get x;
   external set x(v);
 }`);
-      expectTranslate('class X { private x; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { private x; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -235,8 +223,7 @@ class X {
   external set x(v);
   external factory X(x);
 }`);
-      expectTranslate('class X { _x; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { _x; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -245,8 +232,7 @@ class X {
 }`);
     });
     it('allow protected', () => {
-      expectTranslate('class X { protected x; }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { protected x; }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -264,8 +250,7 @@ class X {
 }`);
     });
     it('supports methods', () => {
-      expectTranslate('class X { x() { return 42; } }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x() { return 42; } }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -277,15 +262,13 @@ class X {
         randomInRange(start: number, end: number): Promise<number>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
 class MyMath {
   // @Ignore
   MyMath.fakeConstructor$();
 }
 
-@anonymous
-@JS()
+@JS("MyMath")
 abstract class _MyMath {
   external Promise<num> randomInRange(num start, num end);
 }
@@ -308,15 +291,13 @@ abstract class Promise<T> {
         f(a: T): Promise<T>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
 class X<T> {
   // @Ignore
   X.fakeConstructor$();
 }
 
-@anonymous
-@JS()
+@JS("X")
 abstract class _X<T> {
   external Promise<T> f(T a);
 }
@@ -343,7 +324,6 @@ abstract class Promise<T> {
         f(): Promise<string>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
 class Y {
   // @Ignore
@@ -352,15 +332,13 @@ class Y {
   external set a(num v);
 }
 
-@anonymous
 @JS()
 class Z extends Y {
   // @Ignore
   Z.fakeConstructor$() : super.fakeConstructor$();
 }
 
-@anonymous
-@JS()
+@JS("Z")
 abstract class _Z {
   external Promise<String> f();
 }
@@ -384,15 +362,13 @@ abstract class Promise<T> {
         f(a: string, b: number): Promise<number>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
 }
 
-@anonymous
-@JS()
+@JS("X")
 abstract class _X {
   /*external Promise<num> f(String a);*/
   /*external Promise<num> f(String a, num b);*/
@@ -422,15 +398,13 @@ abstract class Promise<T> {
         f(c: number[]): Promise<number>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
 }
 
-@anonymous
-@JS()
+@JS("X")
 abstract class _X {
   /*external Promise<num> f(String a);*/
   /*external Promise<num> f(num a, num b);*/
@@ -457,8 +431,7 @@ abstract class Promise<T> {
 }`);
     });
     it('supports abstract methods', () => {
-      expectTranslate('abstract class X { abstract x(); }').to.equal(`@anonymous
-@JS()
+      expectTranslate('abstract class X { abstract x(); }').to.equal(`@JS()
 abstract class X {
   // @Ignore
   X.fakeConstructor$();
@@ -466,8 +439,7 @@ abstract class X {
 }`);
     });
     it('supports method return types', () => {
-      expectTranslate('class X { x(): number { return 42; } }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x(): number { return 42; } }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -475,8 +447,7 @@ class X {
 }`);
     });
     it('supports method params', () => {
-      expectTranslate('class X { x(a, b) { return 42; } }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x(a, b) { return 42; } }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -484,8 +455,7 @@ class X {
 }`);
     });
     it('supports method return types', () => {
-      expectTranslate('class X { x( a : number, b : string ) { return 42; } }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { x( a : number, b : string ) { return 42; } }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -493,8 +463,7 @@ class X {
 }`);
     });
     it('supports get methods', () => {
-      expectTranslate('class X { get y(): number {} }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { get y(): number {} }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -508,8 +477,7 @@ class X {
 }`);
     });
     it('supports set methods', () => {
-      expectTranslate('class X { set y(n: number) {} }').to.equal(`@anonymous
-@JS()
+      expectTranslate('class X { set y(n: number) {} }').to.equal(`@JS()
 class X {
   // @Ignore
   X.fakeConstructor$();
@@ -566,7 +534,6 @@ class X {
     });
     it('should emit extension getters/setters that expose Futures in place of Promises', () => {
       expectTranslate(`declare class MyMath {
-        constructor();
         readonly two: Promise<num>;
         three: Promise<num>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
@@ -575,7 +542,6 @@ class X {
 class MyMath {
   // @Ignore
   MyMath.fakeConstructor$();
-  external factory MyMath();
 }
 
 @JS("MyMath")
@@ -617,15 +583,13 @@ abstract class Promise<T> {
         aPromise: Promise<T>;
       }`).to.equal(`import "package:js/js_util.dart" show promiseToFuture;
 
-@anonymous
 @JS()
 class X<T> {
   // @Ignore
   X.fakeConstructor$();
 }
 
-@anonymous
-@JS()
+@JS("X")
 abstract class _X<T> {
   external Promise<T> get aPromise;
   external set aPromise(Promise<T> v);
@@ -985,6 +949,60 @@ abstract class MyCache implements CacheBase {
   external num get IDLE;
 }`);
     });
+  });
+
+  describe('--trust-js-types', () => {
+    const trustJSTypesOpts = {failFast: true, trustJSTypes: true};
+    it('makes classes that have neither constructors nor static members anonymous when set', () => {
+      expectTranslate(
+          `declare class X {
+             a: number;
+             b: string;
+           }`,
+          trustJSTypesOpts)
+          .to.equal(`@anonymous
+@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external num get a;
+  external set a(num v);
+  external String get b;
+  external set b(String v);
+}`);
+      expectTranslate(
+          `declare class X {
+             constructor();
+             a: number;
+             b: string;
+           }`,
+          trustJSTypesOpts)
+          .to.equal(`@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external factory X();
+  external num get a;
+  external set a(num v);
+  external String get b;
+  external set b(String v);
+}`);
+    });
+    expectTranslate(
+        `declare class X {
+           static a: number;
+           static b: string;
+         }`,
+        trustJSTypesOpts)
+        .to.equal(`@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external static num get a;
+  external static set a(num v);
+  external static String get b;
+  external static set b(String v);
+}`);
   });
 });
 

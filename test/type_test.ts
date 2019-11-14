@@ -155,8 +155,7 @@ external dynamic /*ReadonlyTodo*/ get todo;`);
 
 describe('type arguments', () => {
   it('should support declaration', () => {
-    expectTranslate('class X<A, B> { a: A; }').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X<A, B> { a: A; }').to.equal(`@JS()
 class X<A, B> {
   // @Ignore
   X.fakeConstructor$();
@@ -165,24 +164,21 @@ class X<A, B> {
 }`);
   });
   it('should support nested extends', () => {
-    expectTranslate('class X<A extends B<C>> { }').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X<A extends B<C>> { }').to.equal(`@JS()
 class X<A extends B<C>> {
   // @Ignore
   X.fakeConstructor$();
 }`);
   });
   it('should multiple extends', () => {
-    expectTranslate('class X<A extends A1, B extends B1> { }').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X<A extends A1, B extends B1> { }').to.equal(`@JS()
 class X<A extends A1, B extends B1> {
   // @Ignore
   X.fakeConstructor$();
 }`);
   });
   it('should support use', () => {
-    expectTranslate('class X extends Y<A, B> { }').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X extends Y<A, B> { }').to.equal(`@JS()
 class X extends Y<A, B> {
   // @Ignore
   X.fakeConstructor$() : super.fakeConstructor$();
@@ -193,14 +189,12 @@ class X extends Y<A, B> {
 external X<num> get x;
 @JS()
 external set x(X<num> v);`);
-    expectTranslate('class X extends Y<void> { }').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X extends Y<void> { }').to.equal(`@JS()
 class X extends Y<void> {
   // @Ignore
   X.fakeConstructor$() : super.fakeConstructor$();
 }`);
-    expectTranslate('class X extends Y<void, string> { }').to.equal(`@anonymous
-@JS()
+    expectTranslate('class X extends Y<void, string> { }').to.equal(`@JS()
 class X extends Y<void, String> {
   // @Ignore
   X.fakeConstructor$() : super.fakeConstructor$();
