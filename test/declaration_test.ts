@@ -950,6 +950,60 @@ abstract class MyCache implements CacheBase {
 }`);
     });
   });
+
+  describe('--trust-js-types', () => {
+    const trustJSTypesOpts = {failFast: true, trustJSTypes: true};
+    it('makes classes that have neither constructors nor static members anonymous when set', () => {
+      expectTranslate(
+          `declare class X {
+             a: number;
+             b: string;
+           }`,
+          trustJSTypesOpts)
+          .to.equal(`@anonymous
+@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external num get a;
+  external set a(num v);
+  external String get b;
+  external set b(String v);
+}`);
+      expectTranslate(
+          `declare class X {
+             constructor();
+             a: number;
+             b: string;
+           }`,
+          trustJSTypesOpts)
+          .to.equal(`@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external factory X();
+  external num get a;
+  external set a(num v);
+  external String get b;
+  external set b(String v);
+}`);
+    });
+    expectTranslate(
+        `declare class X {
+           static a: number;
+           static b: string;
+         }`,
+        trustJSTypesOpts)
+        .to.equal(`@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external static num get a;
+  external static set a(num v);
+  external static String get b;
+  external static set b(String v);
+}`);
+  });
 });
 
 describe('single call signature interfaces', () => {

@@ -99,12 +99,22 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     return path.join('.');
   }
 
-  private isAnonymousInterface(node: ts.Node): boolean {
-    if (!ts.isInterfaceDeclaration(node)) return false;
-    let interfaceDecl = node as base.ExtendedInterfaceDeclaration;
-    // If we were able to associate a variable declaration with the interface definition then
-    // the interface isn't actually anonymous.
-    return !interfaceDecl.classLikeVariableDeclaration;
+  private isAnonymous(node: ts.Node): boolean {
+    if (ts.isInterfaceDeclaration(node)) {
+      const extendedInterfaceDecl = node as base.ExtendedInterfaceDeclaration;
+      // If we were able to associate a variable declaration with the interface definition then the
+      // interface isn't actually anonymous.
+      return !extendedInterfaceDecl.classLikeVariableDeclaration;
+    } else if (this.trustJSTypes && ts.isClassLike(node)) {
+      // If the trust-js-types flag is set, @anonymous tags are emitted on all classes that don't
+      // have any constructors or any static members.
+      const hasConstructor = node.members.some((member: ts.TypeElement|ts.ClassElement) => {
+        return ts.isConstructorDeclaration(member) || ts.isConstructSignatureDeclaration(member);
+      });
+      const hasStatic = node.members.some(base.isStatic);
+      return !hasConstructor && !hasStatic;
+    }
+    return false;
   }
 
   maybeEmitJsAnnotation(node: ts.Node, {suppressUnneededPaths}: {suppressUnneededPaths: boolean}) {
@@ -112,7 +122,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     // will already have the same annotation.
     if (this.insideCodeComment) return;
 
-    if (this.isAnonymousInterface(node)) {
+    if (this.isAnonymous(node)) {
       this.emit('@anonymous');
       this.emit('@JS()');
       return;
@@ -433,7 +443,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
   constructor(
       tr: Transpiler, private fc: FacadeConverter, private enforceUnderscoreConventions: boolean,
-      private promoteFunctionLikeMembers: boolean) {
+      private promoteFunctionLikeMembers: boolean, private trustJSTypes: boolean) {
     super(tr);
   }
 
@@ -680,11 +690,11 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       } break;
       case ts.SyntaxKind.Constructor:
       case ts.SyntaxKind.ConstructSignature: {
-        let ctorDecl = <ts.ConstructorDeclaration>node;
+        const ctorDecl = <ts.ConstructorDeclaration>node;
         // Find containing class name.
         let classDecl = base.getEnclosingClass(ctorDecl);
         if (!classDecl) this.reportError(ctorDecl, 'cannot find outer class node');
-        let isAnonymous = this.isAnonymousInterface(classDecl);
+        const isAnonymous = this.isAnonymous(classDecl);
         if (isAnonymous) {
           this.emit('// Constructors on anonymous interfaces are not yet supported.\n');
           this.enterCodeComment();

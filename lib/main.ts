@@ -50,6 +50,10 @@ export interface TranspilerOptions {
    * declarations are static.
    */
   explicitStatic?: boolean;
+  /**
+   * Emit anonymous tags on all classes that have neither constructors nor static members.
+   */
+  trustJSTypes?: boolean;
 
   /**
    * Experimental JS Interop specific option to promote properties with function
@@ -109,7 +113,8 @@ export class Transpiler {
     this.options = this.options || {};
     this.fc = new FacadeConverter(this, options.typingsRoot, options.generateHTML);
     this.declarationTranspiler = new DeclarationTranspiler(
-        this, this.fc, options.enforceUnderscoreConventions, options.promoteFunctionLikeMembers);
+        this, this.fc, options.enforceUnderscoreConventions, options.promoteFunctionLikeMembers,
+        options.trustJSTypes);
     this.transpilers = [
       new ModuleTranspiler(this, this.fc, options.moduleName),
       this.declarationTranspiler,

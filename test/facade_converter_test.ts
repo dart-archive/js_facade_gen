@@ -128,9 +128,8 @@ external Thing get t;`);
 external get x;`);
       expectWithTypes('const x = [];').to.equal(`@JS()
 external get x;`);
-      expectWithTypes(
-          'class Person {}' +
-          'const x = new Person();')
+      expectWithTypes(`class Person {}
+                      const x = new Person();`)
           .to.equal(`@JS()
 class Person {
   // @Ignore
