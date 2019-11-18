@@ -295,6 +295,10 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
           let propertyDecl = <ts.PropertyDeclaration|ts.VariableDeclaration>node;
           // We need to emit these as properties not fields.
           if (!this.promoteFunctionLikeMembers || !isFunctionLikeProperty(propertyDecl, this.tc)) {
+            // Suppress the prototype member
+            if (base.ident(propertyDecl.name) === 'prototype') {
+              return;
+            }
             orderedGroups.push([node]);
             return;
           }
@@ -611,18 +615,17 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         this.emit('/* WARNING: export assignment not yet supported. */\n');
         break;
       case ts.SyntaxKind.TypeAliasDeclaration: {
-        // Object literal type alias declarations can be treated like interface declarations.
-        let alias = <ts.TypeAliasDeclaration>node;
-        let type = alias.type;
-        if (type.kind === ts.SyntaxKind.TypeLiteral) {
-          let literal = <ts.TypeLiteralNode>type;
+        const alias = <ts.TypeAliasDeclaration>node;
+        const type = alias.type;
+        if (ts.isTypeLiteralNode(type)) {
+          // Object literal type alias declarations can be treated like interface declarations.
+          const literal = type;
           this.emit('@anonymous\n@JS()\n');
           this.visitClassLikeHelper(
               'abstract class', literal, alias.name, alias.typeParameters, null);
-        } else if (type.kind === ts.SyntaxKind.FunctionType) {
+        } else if (ts.isFunctionTypeNode(type)) {
           // Function type alias definitions are equivalent to dart typedefs.
-          this.visitFunctionTypedefInterface(
-              base.ident(alias.name), type as ts.FunctionTypeNode, alias.typeParameters);
+          this.visitFunctionTypedefInterface(base.ident(alias.name), type, alias.typeParameters);
         } else {
           this.enterCodeComment();
           if (ts.isMappedTypeNode(alias.type)) {
@@ -691,6 +694,17 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       case ts.SyntaxKind.Constructor:
       case ts.SyntaxKind.ConstructSignature: {
         const ctorDecl = <ts.ConstructorDeclaration>node;
+        if (ts.isTypeLiteralNode(node.parent)) {
+          // All constructors within TypeLiteralNodes should have been merged into corresponding
+          // classes. The only exception is this case, where there exist aliases to those literals.
+          this.emit('// Skipping constructor from aliased type.\n');
+          this.enterCodeComment();
+          this.emit('new');
+          this.visitParameters(ctorDecl.parameters, {namesOnly: false});
+          this.emitNoSpace(';');
+          this.exitCodeComment();
+          break;
+        }
         // Find containing class name.
         let classDecl = base.getEnclosingClass(ctorDecl);
         if (!classDecl) this.reportError(ctorDecl, 'cannot find outer class node');
@@ -802,7 +816,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         this.fc.visitTypeName(name);
       }
 
-      if (fn.typeParameters) {
+      if (fn.typeParameters && fn.typeParameters.length > 0) {
         let insideComment = this.insideCodeComment;
         if (!insideComment) {
           this.enterCodeComment();
@@ -928,7 +942,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       this.emitNoSpace('Extensions');
     }
 
-    if (typeParameters) {
+    if (typeParameters && typeParameters.length > 0) {
       this.emit('<');
       this.enterTypeArguments();
       this.visitList(typeParameters);
