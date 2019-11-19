@@ -354,7 +354,7 @@ export function normalizeSourceFile(
       return;
     }
 
-    // The constructed type can be a type literal, an interface or a class
+    // The constructed type can be a type literal, an interface, or a class.
     return constructedTypeSymbol.declarations.find((member: ts.TypeElement) => {
       if (ts.isTypeLiteralNode(member)) {
         return true;
@@ -386,7 +386,7 @@ export function normalizeSourceFile(
             // Try to find a Constructor within the variable's type.
             const constructor: base.Constructor = findConstructorInType(variableType);
 
-            // Get the type of object that the constructor creates
+            // Get the type of object that the constructor creates.
             const constructedType = getConstructedObjectType(constructor);
             if (!constructedType) {
               return;
@@ -400,7 +400,7 @@ export function normalizeSourceFile(
               fc.suppressNode(existing);
             }
 
-            // These properties do not exist on TypeLiteralNodes
+            // These properties do not exist on TypeLiteralNodes.
             let clazzTypeParameters, clazzHeritageClauses, clazzMembers;
             if (ts.isClassDeclaration(constructedType) ||
                 ts.isInterfaceDeclaration(constructedType)) {
@@ -427,7 +427,7 @@ export function normalizeSourceFile(
             const resolvedVariableType = constructor.parent as ts.ObjectTypeDeclaration;
             resolvedVariableType.members.forEach((member: ts.TypeElement|ts.ClassElement) => {
               // Array.prototype.push is used below as a small hack to get around NodeArrays being
-              // readonly
+              // readonly.
               switch (member.kind) {
                 case ts.SyntaxKind.Constructor:
                 case ts.SyntaxKind.ConstructorType:
@@ -450,7 +450,7 @@ export function normalizeSourceFile(
                 case ts.SyntaxKind.PropertySignature:
                   if (!explicitStatic) {
                     // Finds all existing declarations of this property in the inheritance
-                    // hierarchy of this class
+                    // hierarchy of this class.
                     const existingDeclarations =
                         findPropertyInHierarchy(base.ident(member.name), existing, classes);
 
@@ -462,7 +462,7 @@ export function normalizeSourceFile(
                   }
 
                   // If needed, add declaration of property to the interface that we are
-                  // currently handling
+                  // currently handling.
                   if (!findPropertyInClass(base.ident(member.name), existing)) {
                     if (!explicitStatic) {
                       addModifier(member, ts.createModifier(ts.SyntaxKind.StaticKeyword));
@@ -516,6 +516,11 @@ export function normalizeSourceFile(
         continue;
       }
       const name = base.ident(clause.types[0].expression);
+      // TODO(derekx): We currently only look up ancestor nodes using the classes map. This is
+      // because the classes map contains references to the modified versions of nodes. If the
+      // ancestor is declared in a different file, it won't be found this way. Determine a way to
+      // resolve this issue. One possibility would be to refactor the classes map so that it could
+      // be shared among all files.
       if (!classes.has(name)) {
         continue;
       }
