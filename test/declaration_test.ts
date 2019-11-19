@@ -751,89 +751,153 @@ abstract class X {
   external factory X({String foo_34_81$});
 }`);
   });
+});
 
-  it('supports interfaces with constructors', () => {
-    expectTranslate(`
-interface XStatic {
-  new (a: string, b): X;
-  foo();
+describe('types with constructors', () => {
+  describe('supports type literals with constructors', () => {
+    it('simple', () => {
+      expectTranslate(`
+declare interface XType {
+  a: string;
+  b: number;
+  c(): boolean;
 }
 
-declare var X: XStatic;
-`).to.equal(`@JS("X")
-abstract class XStatic {
-  external factory XStatic(String a, b);
-  external foo();
+declare var X: {
+  prototype: XType,
+  new(a: string, b: number): XType
+};`).to.equal(`@anonymous
+@JS()
+abstract class XType {
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
 }
 
 @JS()
-external XStatic get X;
-@JS()
-external set X(XStatic v);`);
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+  external factory X(String a, num b);
+}`);
+    });
 
-    expectTranslate(`
-declare var X: XStatic;
-
-interface XStatic {
-  new (a: string, b): X;
-  foo();
+    it('should make members of the literal type static ', () => {
+      expectTranslate(`
+declare interface XType {
+  a: string;
+  b: number;
+  c(): boolean;
 }
+
+declare var X: {
+  b: number;
+  prototype: XType,
+  new(a: string, b: number): XType
+};`).to.equal(`@anonymous
+@JS()
+abstract class XType {
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+}
+
+@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external String get a;
+  external set a(String v);
+  external static num get b;
+  external static set b(num v);
+  external bool c();
+  external factory X(String a, num b);
+}`);
+
+      expectTranslate(`
+interface C {
+  oncached: (ev: Event) => any;
+}
+declare var C: {new(): C; CHECKING: number; }`)
+          .to.equal(`import "dart:html" show Event;
+
+@JS()
+class C {
+  // @Ignore
+  C.fakeConstructor$();
+  external dynamic Function(Event) get oncached;
+  external set oncached(dynamic Function(Event) v);
+  external factory C();
+  external static num get CHECKING;
+  external static set CHECKING(num v);
+}`);
+    });
+
+    it('when possible, should merge the variable with an existing type of the same name', () => {
+      expectTranslate(`
+declare interface X {
+  a: string;
+  b: number;
+  c(): boolean;
+}
+
+declare var X: {
+  prototype: X,
+  new(a: string, b: number): X
+};`).to.equal(`@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+  external factory X(String a, num b);
+}`);
+
+      expectTranslate(`
+declare interface X {
+  a: string;
+  b: number;
+  c(): boolean;
+}
+
+declare var X: {
+  b: number;
+  prototype: X,
+  new(a: string, b: number): X
+};`).to.equal(`@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external String get a;
+  external set a(String v);
+  external static num get b;
+  external static set b(num v);
+  external bool c();
+  external factory X(String a, num b);
+}`);
+
+      expectTranslate(`
+interface X { a: number; }
+interface Y { c: number; }
+
+declare var X: {prototype: X, new (): X, b: string};
+declare var Y: {prototype: Y, new (): Y, d: string};
 `).to.equal(`@JS()
-external XStatic get X;
-@JS()
-external set X(XStatic v);
-
-@JS("X")
-abstract class XStatic {
-  external factory XStatic(String a, b);
-  external foo();
-}`);
-
-    expectTranslate(`
-interface XStatic {
-  new (a: string, b): XStatic;
-  foo();
-}
-
-declare namespace Foo {
-  declare var X: XStatic;
-}
-`).to.equal(`@JS("Foo.X")
-abstract class XStatic {
-  external factory XStatic(String a, b);
-  external foo();
-}
-
-// Module Foo
-@JS("Foo.X")
-external XStatic get X;
-@JS("Foo.X")
-external set X(XStatic v);
-// End module Foo`);
-
-    // Case where we cannot find a variable matching the interface so it is unsafe to give the
-    // interface a constructor.
-    expectTranslate(`
-interface XStatic {
-  new (a: string|bool, b): XStatic;
-  foo();
-}`).to.equal(`@anonymous
-@JS()
-abstract class XStatic {
-  // Constructors on anonymous interfaces are not yet supported.
-  /*external factory XStatic(String|bool a, b);*/
-  external foo();
-}`);
-  });
-
-  it('merges top level variables into classes when they are associated with those classes', () => {
-    expectTranslate(`interface X { a: number; }
-                     interface Y { c: number; }
-
-                     declare var X: {prototype: X, new (): X, b: string};
-                     declare var Y: {prototype: Y, new (): Y, d: string};`)
-        .to.equal(`@JS("X")
-abstract class X {
+class X {
+  // @Ignore
+  X.fakeConstructor$();
   external num get a;
   external set a(num v);
   external factory X();
@@ -841,13 +905,274 @@ abstract class X {
   external static set b(String v);
 }
 
-@JS("Y")
-abstract class Y {
+@JS()
+class Y {
+  // @Ignore
+  Y.fakeConstructor$();
   external num get c;
   external set c(num v);
   external factory Y();
   external static String get d;
   external static set d(String v);
+}`);
+    });
+
+    it('should support named type aliases of literals', () => {
+      expectTranslate(`
+declare interface XType {
+  a: string;
+  b: number;
+  c(): boolean;
+}
+
+
+declare type Y = {
+  prototype: XType,
+  new(a: string, b: number): XType
+}
+
+declare var X: Y;
+`).to.equal(`@anonymous
+@JS()
+abstract class XType {
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+}
+
+@anonymous
+@JS()
+abstract class Y {
+  // Skipping constructor from aliased type.
+  /*new(String a, num b);*/
+}
+
+@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+  external factory X(String a, num b);
+}`);
+    });
+
+    it('supports declarations within namespaces', () => {
+      expectTranslate(`
+declare interface XType {
+  a: string;
+  b: number;
+  c(): boolean;
+}
+
+declare module m1 {
+  declare var X: {
+    prototype: XType,
+    new(a: string, b: number): XType
+  }
+};`).to.equal(`@anonymous
+@JS()
+abstract class XType {
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+}
+
+// Module m1
+@JS("m1.X")
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+  external factory X(String a, num b);
+}
+
+// End module m1`);
+    });
+  });
+
+  describe('supports interfaces with constructors', () => {
+    it('simple', () => {
+      expectTranslate(`
+declare interface XType {
+  a: string;
+  b: number;
+  c(): boolean;
+}
+
+declare interface X {
+  new(a: string, b: number): XType;
+}
+
+declare var X: X;
+`).to.equal(`@anonymous
+@JS()
+abstract class XType {
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+}
+
+@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+  external factory X(String a, num b);
+}`);
+    });
+
+    it('should make members declared on the interface static ', () => {
+      expectTranslate(`
+declare interface XType {
+  a: string;
+  b: number;
+  c(): boolean;
+}
+
+declare interface X {
+  b: number;
+  new(a: string, b: number): XType;
+}
+
+declare var X: X;
+`).to.equal(`@anonymous
+@JS()
+abstract class XType {
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+}
+
+@JS()
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external String get a;
+  external set a(String v);
+  external static num get b;
+  external static set b(num v);
+  external bool c();
+  external factory X(String a, num b);
+}`);
+    });
+
+    it('should support type aliases', () => {
+      expectTranslate(`
+declare interface XType {
+  a: string;
+  b: number;
+  c(): boolean;
+}
+declare type YType = XType;
+
+declare interface X {
+  new(a: string, b: number): YType;
+}
+
+declare type Y = X;
+
+declare var Y: Y;
+`).to.equal(`@anonymous
+@JS()
+abstract class XType {
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+}
+
+/*declare type YType = XType;*/
+@anonymous
+@JS()
+abstract class X {
+  // Constructors on anonymous interfaces are not yet supported.
+  /*external factory X(String a, num b);*/
+}
+
+/*declare type Y = X;*/
+@JS()
+class Y {
+  // @Ignore
+  Y.fakeConstructor$();
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+  external factory Y(String a, num b);
+}`);
+    });
+
+    it('supports being declared within a namespace', () => {
+      expectTranslate(`
+declare interface XType {
+  a: string;
+  b: number;
+  c(): boolean;
+}
+
+declare module m1 {
+  declare var X: {
+    prototype: XType,
+    new(a: string, b: number): XType
+  }
+};`).to.equal(`@anonymous
+@JS()
+abstract class XType {
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+}
+
+// Module m1
+@JS("m1.X")
+class X {
+  // @Ignore
+  X.fakeConstructor$();
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+  external factory X(String a, num b);
+}
+
+// End module m1`);
+    });
+
+    // Case where we cannot find a variable matching the interface so it is unsafe to give the
+    // interface a constructor.
+    expectTranslate(`
+interface X {
+  new (a: string|bool, b: number): XType;
+}`).to.equal(`@anonymous
+@JS()
+abstract class X {
+  // Constructors on anonymous interfaces are not yet supported.
+  /*external factory X(String|bool a, num b);*/
 }`);
   });
 });
@@ -869,8 +1194,10 @@ describe('flags', () => {
               readonly startOffset: number;
             }`,
         generateHTMLOpts)
-        .to.equal(`@JS("AbstractRange")
-abstract class AbstractRange {
+        .to.equal(`@JS()
+class AbstractRange {
+  // @Ignore
+  AbstractRange.fakeConstructor$();
   external bool get collapsed;
   external num get endOffset;
   external num get startOffset;
@@ -903,8 +1230,10 @@ abstract class CacheBase {
   external static num get IDLE;
 }
 
-@JS("MyCache")
-abstract class MyCache implements CacheBase {
+@JS()
+class MyCache implements CacheBase {
+  // @Ignore
+  MyCache.fakeConstructor$();
   external factory MyCache();
   external static num get CHECKING;
   external static num get DOWNLOADING;
@@ -941,8 +1270,10 @@ abstract class CacheBase {
   external factory CacheBase({num CHECKING, num DOWNLOADING, num IDLE});
 }
 
-@JS("MyCache")
-abstract class MyCache implements CacheBase {
+@JS()
+class MyCache implements CacheBase {
+  // @Ignore
+  MyCache.fakeConstructor$();
   external factory MyCache();
   external num get CHECKING;
   external num get DOWNLOADING;

@@ -69,6 +69,7 @@ export class ImportSummary {
   asPrefix: string;
 }
 
+export type Constructor = ts.ConstructorDeclaration|ts.ConstructSignatureDeclaration;
 export type ClassLike = ts.ClassLikeDeclaration|ts.InterfaceDeclaration;
 export type NamedDeclaration = ClassLike|ts.PropertyDeclaration|ts.VariableDeclaration|
                                ts.MethodDeclaration|ts.ModuleDeclaration|ts.FunctionDeclaration;
@@ -115,7 +116,8 @@ export function isExtendsClause(heritageClause: ts.HeritageClause) {
   return heritageClause.token === ts.SyntaxKind.ExtendsKeyword &&
       !ts.isInterfaceDeclaration(heritageClause.parent);
 }
-export function isConstructor(n: ts.Node): boolean {
+
+export function isConstructor(n: ts.Node): n is Constructor {
   return ts.isConstructorDeclaration(n) || ts.isConstructSignatureDeclaration(n);
 }
 
@@ -272,6 +274,16 @@ export function copyLocation(src: ts.Node, dest: ts.Node) {
   dest.pos = src.pos;
   dest.end = src.end;
   dest.parent = src.parent;
+}
+
+export function cloneNodeArray<T extends ts.Node>(src?: ts.NodeArray<T>): ts.NodeArray<T>|
+    undefined {
+  if (!src) {
+    return undefined;
+  }
+  const clone = ts.createNodeArray(src.map(ts.getMutableClone));
+  copyNodeArrayLocation(src, clone);
+  return clone;
 }
 
 export function copyNodeArrayLocation(src: ts.TextRange, dest: ts.NodeArray<any>) {

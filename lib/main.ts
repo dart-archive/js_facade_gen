@@ -194,7 +194,7 @@ export class Transpiler {
     });
 
     sourceFiles.forEach((f: ts.SourceFile) => {
-      const dartCode = this.translate(f);
+      const dartCode = this.translate(f, fileSet);
 
       if (destination) {
         const outputFile = this.getOutputPath(path.resolve(f.fileName), destination);
@@ -219,7 +219,7 @@ export class Transpiler {
         .filter(
             (sourceFile: ts.SourceFile) =>
                 (!sourceFile.fileName.match(/\.d\.ts$/) && !!sourceFile.fileName.match(/\.[jt]s$/)))
-        .forEach((f) => paths[f.fileName] = this.translate(f));
+        .forEach((f) => paths[f.fileName] = this.translate(f, new Set([f.fileName])));
     this.checkForErrors(program);
     return paths;
   }
@@ -278,7 +278,7 @@ export class Transpiler {
     this.outputStack.pop();
   }
 
-  private translate(sourceFile: ts.SourceFile): string {
+  private translate(sourceFile: ts.SourceFile, fileSet: Set<string>): string {
     this.currentFile = sourceFile;
     this.outputs = [];
     this.outputStack = [];
@@ -288,7 +288,7 @@ export class Transpiler {
     }
 
     this.lastCommentIdx = -1;
-    merge.normalizeSourceFile(sourceFile, this.fc, this.options.explicitStatic);
+    merge.normalizeSourceFile(sourceFile, this.fc, fileSet, this.options.explicitStatic);
     this.pushContext(OutputContext.Default);
     this.visit(sourceFile);
     this.popContext();

@@ -482,23 +482,6 @@ function log(...args);`)
           .to.equal(`@JS()
 external log([args1, args2, args3, args4, args5]);`);
     });
-    it('interface constructors', () => {
-      expectTranslate(`
-interface C {
-  oncached: (ev: Event) => any;
-}
-declare var C: {new(): C; CHECKING: number; }`)
-          .to.equal(`import "dart:html" show Event;
-
-@JS("C")
-abstract class C {
-  external dynamic Function(Event) get oncached;
-  external set oncached(dynamic Function(Event) v);
-  external factory C();
-  external static num get CHECKING;
-  external static set CHECKING(num v);
-}`);
-    });
     it('property bag interfaces', () => {
       expectTranslate(`
 interface X {
