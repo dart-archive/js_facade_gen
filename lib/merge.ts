@@ -381,18 +381,32 @@ export function normalizeSourceFile(
       const statement = n;
       statement.declarationList.declarations.forEach((variableDecl: ts.VariableDeclaration) => {
         if (ts.isIdentifier(variableDecl.name)) {
+          const name = base.ident(variableDecl.name);
           if (variableDecl.type) {
             const variableType = variableDecl.type;
+
             // Try to find a Constructor within the variable's type.
             const constructor: base.Constructor = findConstructorInType(variableType);
-
-            // Get the type of object that the constructor creates.
-            const constructedType = getConstructedObjectType(constructor);
-            if (!constructedType) {
+            // If we cannot find a constructor within the variable's type, we still need to check
+            // whether or not a type with the same name as the variable already exists. If it does,
+            // we must rename it. That type is not directly associated with this variable, so they
+            // cannot be combined.
+            if (!constructor) {
+              if (classes.has(name)) {
+                const existing = classes.get(name);
+                if (!ts.isInterfaceDeclaration(existing)) {
+                  return;
+                }
+                const clonedName = ts.getMutableClone(existing.name);
+                clonedName.escapedText = ts.escapeLeadingUnderscores(name + 'Interface');
+                existing.name = clonedName;
+              }
               return;
             }
 
-            const name = base.ident(variableDecl.name);
+            // Get the type of object that the constructor creates.
+            const constructedType = getConstructedObjectType(constructor);
+
             if (classes.has(name)) {
               const existing = classes.get(name);
               // If a class with the same name as the variable already exists, we should suppress

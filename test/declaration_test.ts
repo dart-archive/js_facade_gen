@@ -1162,10 +1162,13 @@ class X {
 
 // End module m1`);
     });
+  });
 
-    // Case where we cannot find a variable matching the interface so it is unsafe to give the
-    // interface a constructor.
-    expectTranslate(`
+  describe('cases where a type and a variable cannot be merged', () => {
+    it('should handle cases where an interface has no matching variable', () => {
+      // Case where we cannot find a variable matching the interface so it is unsafe to give the
+      // interface a constructor.
+      expectTranslate(`
 interface X {
   new (a: string|bool, b: number): XType;
 }`).to.equal(`@anonymous
@@ -1174,6 +1177,36 @@ abstract class X {
   // Constructors on anonymous interfaces are not yet supported.
   /*external factory X(String|bool a, num b);*/
 }`);
+    });
+
+    it('should handle cases where a type and a variable have the same name but are unrelated',
+       () => {
+         // Case where a variable has the same name as a type, but they should not be combined
+         // because they are unrelated. This is valid in TypeScript because the variable has an
+         // actual value in JavaScript, whereas the type is only part of TypeScript's type system.
+         expectTranslate(`
+interface X {
+  a: string;
+  b: number;
+  c(): boolean;
+}
+
+declare var X: { a: number[], b: number[], c: number[] };
+`).to.equal(`@anonymous
+@JS()
+abstract class XInterface {
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+}
+
+@JS()
+external dynamic /*{ a: number[], b: number[], c: number[] }*/ get X;
+@JS()
+external set X(dynamic /*{ a: number[], b: number[], c: number[] }*/ v);`);
+       });
   });
 });
 
