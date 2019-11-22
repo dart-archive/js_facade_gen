@@ -85,7 +85,7 @@ function hasVarArgs(parameters: ts.ParameterDeclaration[]): boolean {
  * }
  * Path: m1.m2.foo
  */
-function fullJsPath(node: base.NamedDeclaration): string {
+function fullJsPath(node: ts.NamedDeclaration): string {
   const parts: Array<string> = [base.ident(node.name)];
   let p: ts.Node = node.parent;
   while (p != null) {
@@ -131,7 +131,7 @@ export class NameRewriter {
 
   constructor(private fc: FacadeConverter) {}
 
-  private computeName(node: base.NamedDeclaration): DartNameRecord {
+  private computeName(node: ts.NamedDeclaration): DartNameRecord {
     const fullPath = fullJsPath(node);
     if (this.dartTypes.has(fullPath)) {
       return this.dartTypes.get(fullPath);
@@ -178,7 +178,7 @@ export class NameRewriter {
     }
   }
 
-  lookupName(node: base.NamedDeclaration, context: ts.Node) {
+  lookupName(node: ts.NamedDeclaration, context: ts.Node) {
     let name = this.computeName(node).name;
     return this.fc.resolveImportForSourceFile(node.getSourceFile(), context.getSourceFile(), name);
   }
@@ -610,52 +610,83 @@ export class FacadeConverter extends base.TranspilerBase {
     }
   }
 
+  replaceNode(original: ts.Node, replacement: ts.Node) {
+    if (ts.isVariableDeclaration(original) && ts.isClassDeclaration(replacement)) {
+      // Handle the speical case in mergeVariablesIntoClasses where we upgrade variable declarations
+      // to classes.
+      const symbol = this.tc.getSymbolAtLocation(original.name);
+      symbol.declarations = symbol.getDeclarations().map((declaration: ts.Declaration) => {
+        // TODO(derekx): Changing the declarations of a symbol like this is a hack. It would be
+        // cleaner and safer to generate a new Program and TypeChecker after performing
+        // gatherClasses and mergeVariablesIntoClasses.
+        if (declaration === original) {
+          return replacement;
+        }
+        return declaration;
+      });
+    }
+
+    super.replaceNode(original, replacement);
+  }
+
   getSymbolAtLocation(identifier: ts.EntityName) {
     let symbol = this.tc.getSymbolAtLocation(identifier);
     while (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = this.tc.getAliasedSymbol(symbol);
     return symbol;
   }
 
-  getSymbolDeclaration(symbol: ts.Symbol, n?: ts.Node): ts.Declaration {
-    if (!symbol || this.tc.isUnknownSymbol(symbol)) return null;
-    let decl = symbol.valueDeclaration;
-    if (!decl) {
-      // In the case of a pure declaration with no assignment, there is no value declared.
-      // Just grab the first declaration, hoping it is declared once.
-      if (!symbol.declarations || symbol.declarations.length === 0) {
-        this.reportError(n, 'no declarations for symbol ' + symbol.name);
-        return;
-      }
-      decl = symbol.declarations[0];
+  getValueDeclarationOfSymbol(symbol: ts.Symbol, n?: ts.Node): ts.Declaration|undefined {
+    if (!symbol || this.tc.isUnknownSymbol(symbol)) {
+      return undefined;
     }
-    return decl;
+    if (!symbol.valueDeclaration) {
+      this.reportError(n, `no value declaration for symbol ${symbol.name}`);
+      return undefined;
+    }
+    return symbol.valueDeclaration;
+  }
+
+  getTypeDeclarationOfSymbol(symbol: ts.Symbol, n?: ts.Node): ts.Declaration|undefined {
+    if (!symbol || this.tc.isUnknownSymbol(symbol)) {
+      return undefined;
+    }
+    const typeDeclaration = symbol.declarations.find((declaration: ts.Declaration) => {
+      return ts.isInterfaceDeclaration(declaration) || ts.isClassDeclaration(declaration) ||
+          ts.isTypeAliasDeclaration(declaration) || ts.isTypeParameterDeclaration(declaration);
+    });
+    if (!typeDeclaration) {
+      this.reportError(n, `no type declarations for symbol ${symbol.name}`);
+      return undefined;
+    }
+    return typeDeclaration;
   }
 
   generateDartName(identifier: ts.EntityName, options: TypeDisplayOptions): string {
-    let ret = this.lookupCustomDartTypeName(identifier, options);
-    if (ret) return base.formatType(ret.name, ret.comment, options);
+    const ret = this.lookupCustomDartTypeName(identifier, options);
+    if (ret) {
+      return base.formatType(ret.name, ret.comment, options);
+    }
     // TODO(jacobr): handle library import prefixes more robustly. This generally works but is
     // fragile.
     return this.maybeAddTypeArguments(base.ident(identifier), options);
   }
 
   /**
-   * Returns null if declaration cannot be found or is not valid in Dart.
+   * Resolves TypeReferences to find the declaration of the referenced type that matches the
+   * predicate.
+   *
+   * For example, if the type passed is a reference to X and the predicate passed is
+   * ts.isInterfaceDeclaration, then this function will will return the declaration of interface X,
+   * or undefined if there is no such declaration.
    */
-  getDeclaration(identifier: ts.EntityName): ts.Declaration {
-    let symbol: ts.Symbol;
-
-    symbol = this.getSymbolAtLocation(identifier);
-
-    let declaration = this.getSymbolDeclaration(symbol, identifier);
-    if (symbol && symbol.flags & ts.SymbolFlags.TypeParameter) {
-      let kind = declaration.parent.kind;
-      // Only kinds of TypeParameters supported by Dart.
-      if (kind !== ts.SyntaxKind.ClassDeclaration && kind !== ts.SyntaxKind.InterfaceDeclaration) {
-        return null;
-      }
+  getDeclarationOfReferencedType(
+      type: ts.TypeReferenceNode,
+      predicate: (declaration: ts.Declaration) => boolean): ts.Declaration {
+    const referenceSymbol = this.tc.getTypeAtLocation(type.typeName).getSymbol();
+    if (!referenceSymbol) {
+      return undefined;
     }
-    return declaration;
+    return referenceSymbol.getDeclarations().find(predicate);
   }
 
   maybeAddTypeArguments(name: string, options: TypeDisplayOptions): string {
@@ -667,8 +698,7 @@ export class FacadeConverter extends base.TranspilerBase {
   }
 
   /**
-   * Returns a custom Dart type name or null if the type isn't a custom Dart
-   * type.
+   * Returns a custom Dart type name or null if the type isn't a custom Dart type.
    */
   lookupCustomDartTypeName(identifier: ts.EntityName, options?: TypeDisplayOptions):
       {name?: string, comment?: string, keep?: boolean} {
@@ -678,14 +708,13 @@ export class FacadeConverter extends base.TranspilerBase {
         insideTypeArgument: this.insideTypeArgument
       };
     }
-    let ident = base.ident(identifier);
+    const ident = base.ident(identifier);
     if (ident === 'Promise' && this.emitPromisesAsFutures) {
       return {name: this.maybeAddTypeArguments('Future', options)};
     }
-    let symbol: ts.Symbol = this.getSymbolAtLocation(identifier);
-    let declaration = this.getSymbolDeclaration(symbol, identifier);
+    const symbol: ts.Symbol = this.getSymbolAtLocation(identifier);
     if (symbol && symbol.flags & ts.SymbolFlags.TypeParameter) {
-      let kind = declaration.parent.kind;
+      const parent = this.getTypeDeclarationOfSymbol(symbol).parent;
       if (options.resolvedTypeArguments && options.resolvedTypeArguments.has(ident)) {
         return {
           name: this.generateDartTypeName(
@@ -693,8 +722,8 @@ export class FacadeConverter extends base.TranspilerBase {
         };
       }
       // Only kinds of TypeParameters supported by Dart.
-      if (kind !== ts.SyntaxKind.ClassDeclaration && kind !== ts.SyntaxKind.InterfaceDeclaration &&
-          kind !== ts.SyntaxKind.TypeAliasDeclaration) {
+      if (!ts.isClassDeclaration(parent) && !ts.isInterfaceDeclaration(parent) &&
+          !ts.isTypeAliasDeclaration(parent)) {
         return {name: 'dynamic', comment: ident};
       }
     }
@@ -704,7 +733,7 @@ export class FacadeConverter extends base.TranspilerBase {
         return null;
       }
 
-      let fileAndName = this.getFileAndName(identifier, symbol);
+      const fileAndName = this.getFileAndName(identifier, symbol);
 
       if (fileAndName) {
         let fileSubs = TS_TO_DART_TYPENAMES.get(fileAndName.fileName);
@@ -727,6 +756,8 @@ export class FacadeConverter extends base.TranspilerBase {
         }
       }
     }
+
+    const declaration = this.getTypeDeclarationOfSymbol(symbol, identifier);
     if (declaration) {
       if (symbol.flags & ts.SymbolFlags.Enum) {
         // We can't treat JavaScript enums as Dart enums in this case.
@@ -738,8 +769,7 @@ export class FacadeConverter extends base.TranspilerBase {
         if (supportedDeclaration) {
           return {
             name: this.maybeAddTypeArguments(
-                this.nameRewriter.lookupName(<base.NamedDeclaration>declaration, identifier),
-                options),
+                this.nameRewriter.lookupName(declaration, identifier), options),
             keep: true
           };
         }
@@ -751,13 +781,10 @@ export class FacadeConverter extends base.TranspilerBase {
         };
       }
 
-      let kind = declaration.kind;
-      if (kind === ts.SyntaxKind.ClassDeclaration || kind === ts.SyntaxKind.InterfaceDeclaration ||
-          kind === ts.SyntaxKind.VariableDeclaration ||
-          kind === ts.SyntaxKind.PropertyDeclaration ||
-          kind === ts.SyntaxKind.FunctionDeclaration) {
-        let name = this.nameRewriter.lookupName(<base.NamedDeclaration>declaration, identifier);
-        if (kind === ts.SyntaxKind.InterfaceDeclaration &&
+      if (ts.isClassDeclaration(declaration) || ts.isInterfaceDeclaration(declaration) ||
+          ts.isTypeAliasDeclaration(declaration)) {
+        const name = this.nameRewriter.lookupName(declaration, identifier);
+        if (ts.isInterfaceDeclaration(declaration) &&
             base.isFunctionTypedefLikeInterface(<ts.InterfaceDeclaration>declaration) &&
             base.getAncestor(identifier, ts.SyntaxKind.HeritageClause)) {
           // TODO(jacobr): we need to specify a specific call method for this
@@ -768,6 +795,32 @@ export class FacadeConverter extends base.TranspilerBase {
       }
     }
     return null;
+  }
+
+  /**
+   * Looks up an identifier that is used as the name of a value (variable or function). Uses the
+   * name rewriter to fix naming conflicts.
+   *
+   * Returns the original name if it doesn't cause any conflicts, otherwise returns a renamed
+   * identifier.
+   */
+  lookupDartValueName(identifier: ts.Identifier, options?: TypeDisplayOptions):
+      {name?: string, comment?: string, keep?: boolean} {
+    if (!options) {
+      options = {
+        insideComment: this.insideCodeComment,
+        insideTypeArgument: this.insideTypeArgument
+      };
+    }
+    const symbol: ts.Symbol = this.getSymbolAtLocation(identifier);
+    const declaration = this.getValueDeclarationOfSymbol(symbol, identifier);
+    if (declaration) {
+      if (ts.isVariableDeclaration(declaration) || ts.isPropertyDeclaration(declaration) ||
+          ts.isFunctionDeclaration(declaration)) {
+        const name = this.nameRewriter.lookupName(declaration, identifier);
+        return {name: this.maybeAddTypeArguments(name, options), keep: true};
+      }
+    }
   }
 
   // TODO(jacobr): performance of this method could easily be optimized.
@@ -837,7 +890,7 @@ export class FacadeConverter extends base.TranspilerBase {
     // TODO(jacobr): property need to prefix the name better.
     referenceType.typeName = this.createEntityName(symbol);
     referenceType.typeName.parent = referenceType;
-    let decl = this.getSymbolDeclaration(symbol);
+    const decl = this.getTypeDeclarationOfSymbol(symbol);
     base.copyLocation(decl, referenceType);
     return referenceType;
   }
@@ -855,7 +908,7 @@ export class FacadeConverter extends base.TranspilerBase {
     // that is a typedef like interface causes the typescript compiler to stack
     // overflow. Not sure if this is a bug in the typescript compiler or I am
     // missing something obvious.
-    let declaration = base.getDeclaration(type) as ts.InterfaceDeclaration;
+    const declaration = this.getTypeDeclarationOfSymbol(type.symbol) as ts.InterfaceDeclaration;
     if (base.isFunctionTypedefLikeInterface(declaration)) {
       return [];
     }
@@ -923,7 +976,7 @@ export class FacadeConverter extends base.TranspilerBase {
   private getFileAndName(n: ts.Node, originalSymbol: ts.Symbol): {fileName: string, qname: string} {
     let symbol = originalSymbol;
     while (symbol.flags & ts.SymbolFlags.Alias) symbol = this.tc.getAliasedSymbol(symbol);
-    let decl = this.getSymbolDeclaration(symbol, n);
+    const decl = this.getTypeDeclarationOfSymbol(symbol, n);
 
     const fileName = decl.getSourceFile().fileName;
     const canonicalFileName = this.getRelativeFileName(fileName)

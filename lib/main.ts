@@ -46,6 +46,11 @@ export interface TranspilerOptions {
    */
   generateHTML?: boolean;
   /**
+   * Rename types to avoid conflicts in cases where a variable and a type have the exact same name,
+   * but it is not clear if they are related or not.
+   */
+  renameConflictingTypes?: boolean;
+  /**
    * Do not assume that all properties declared on the anonymous types of top level variable
    * declarations are static.
    */
@@ -288,7 +293,9 @@ export class Transpiler {
     }
 
     this.lastCommentIdx = -1;
-    merge.normalizeSourceFile(sourceFile, this.fc, fileSet, this.options.explicitStatic);
+    merge.normalizeSourceFile(
+        sourceFile, this.fc, fileSet, this.options.renameConflictingTypes,
+        this.options.explicitStatic);
     this.pushContext(OutputContext.Default);
     this.visit(sourceFile);
     this.popContext();

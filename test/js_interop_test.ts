@@ -347,9 +347,9 @@ external ScaleLinear /*ScaleLinear<num>|ScaleLinear<O>*/ scaleLinear/*<O>*/();`)
 
       expectTranslate(`
 class X {
-  F(a:string):num;
-  F(a:string, b: string|num):string;
-  F(a2:string, b: string, c: num):string;
+  F(a: string): number;
+  F(a: string, b: string|number): string;
+  F(a2: string, b: string, c: number): string;
 }`).to.equal(`@JS()
 class X {
   // @Ignore
@@ -363,9 +363,9 @@ class X {
 
       expectTranslate(`
 class X {
-  Y(a:string):num {};
-  Y(a:string, b: num):string {};
-  Y(a2:string, b: string, c: num):string {};
+  Y(a: string): number {};
+  Y(a: string, b: number):string {};
+  Y(a2:string, b: string, c: number):string {};
 }`).to.equal(`@JS()
 class X {
   // @Ignore
@@ -486,11 +486,11 @@ external log([args1, args2, args3, args4, args5]);`);
       expectTranslate(`
 interface X {
   a: string;
-  b: num;
+  b: number;
   c: X;
 }
 interface Y extends X {
-  d: num;
+  d: number;
   /* example comment */
   e: any;
 }`).to.equal(`@anonymous

@@ -33,10 +33,11 @@ export class MergedType {
         case ts.SyntaxKind.TypeReference:
           // We need to follow Alias types as Dart does not support them for non
           // function types. TODO(jacobr): handle them for Function types?
-          let typeRef = <ts.TypeReferenceNode>t;
-          let decl = this.fc.getDeclaration(typeRef.typeName);
-          if (decl !== null && ts.isTypeAliasDeclaration(decl)) {
-            let alias = decl;
+          const typeRef = <ts.TypeReferenceNode>t;
+          const decl =
+              this.fc.getTypeDeclarationOfSymbol(this.fc.getSymbolAtLocation(typeRef.typeName));
+          if (decl && ts.isTypeAliasDeclaration(decl)) {
+            const alias = decl;
             if (!base.supportedTypeDeclaration(alias)) {
               if (typeRef.typeArguments) {
                 console.log(
@@ -244,7 +245,8 @@ export class MergedMember {
  * Normalize a SourceFile
  */
 export function normalizeSourceFile(
-    f: ts.SourceFile, fc: FacadeConverter, fileSet: Set<string>, explicitStatic = false) {
+    f: ts.SourceFile, fc: FacadeConverter, fileSet: Set<string>, renameConflictingTypes = false,
+    explicitStatic = false) {
   let modules: Map<string, ts.ModuleDeclaration> = new Map();
 
   // Merge top level modules.
@@ -275,71 +277,59 @@ export function normalizeSourceFile(
   }
 
   /**
-   * Searches for a constructor member within a TypeNode. If found, it returns that member.
-   * Otherwise, it returns undefined.
+   * Searches for a constructor member within a type literal or an interface. If found, it returns
+   * that member. Otherwise, it returns undefined.
    */
-  function findConstructorInType(type: ts.TypeNode): base.Constructor|undefined {
-    if (ts.isTypeLiteralNode(type)) {
-      // Example TypeScript definition matching the type literal case:
-      //
-      // declare interface XType {
-      //   a: string;
-      //   b: number;
-      //   c(): boolean;
-      // }
-      //
-      // declare var X: {
-      //   prototype: XType,
-      //   new(a: string, b: number): XType,
-      // };
-      //
-      // Possible underlying implementation:
-      // var X = class {
-      //   constructor(public a: string, public b: number) {}
-      //   c(): boolean { return this.b.toString() === this.a }
-      // }
-      //
-      // In TypeScript you could just write new X('abc', 123) and create an instance of
-      // XType. Dart doesn't support this when X is a variable, so X must be upgraded to be
-      // a class.
-      return type.members.find(base.isConstructor) as base.Constructor;
-    } else if (ts.isTypeReferenceNode(type)) {
-      const referenceSymbol = fc.tc.getTypeAtLocation(type.typeName).symbol;
-      if (!referenceSymbol) {
-        return undefined;
-      }
-      for (const declaration of referenceSymbol.declarations) {
-        if (ts.isTypeLiteralNode(declaration)) {
-          // An example of the TypeLiteral case is provided above.
-          return declaration.members.find(base.isConstructor) as base.Constructor;
-        } else if (ts.isInterfaceDeclaration(declaration)) {
-          // Example TypeScript definition matching the interface case:
-          //
-          // interface XType {
-          //   a: string;
-          //   b: number;
-          //   c(): boolean;
-          // }
-          //
-          // interface X {
-          //   new (a: string, b: number): XType;
-          // }
-          //
-          // declare var X: X;
-          //
-          // Possible underlying implementation:
-          // var X: X = class {
-          //   constructor(public a: string, public b: number) {}
-          //   c(): boolean { return this.b.toString() === this.a }
-          // }
-          //
-          // In TypeScript you could just write new X('abc', 123) and create an instance of
-          // XType. Dart doesn't support this when X is a variable, so X must be upgraded to
-          // be a class.
-          return declaration.members.find(base.isConstructor) as base.Constructor;
-        }
-      }
-    }
+  function findConstructorInType(declaration: ts.TypeLiteralNode|
+                                 ts.InterfaceDeclaration): base.Constructor|undefined {
+    // Example TypeScript definition matching the type literal case:
+    //
+    // declare interface XType {
+    //   a: string;
+    //   b: number;
+    //   c(): boolean;
+    // }
+    //
+    // declare var X: {
+    //   prototype: XType,
+    //   new(a: string, b: number): XType,
+    // };
+    //
+    // Possible underlying implementation:
+    // var X = class {
+    //   constructor(public a: string, public b: number) {}
+    //   c(): boolean { return this.b.toString() === this.a }
+    // }
+    //
+    // In TypeScript you could just write new X('abc', 123) and create an instance of
+    // XType. Dart doesn't support this when X is a variable, so X must be upgraded to be
+    // a class.
+
+    // Example TypeScript definition matching the interface case:
+    //
+    // interface XType {
+    //   a: string;
+    //   b: number;
+    //   c(): boolean;
+    // }
+    //
+    // interface X {
+    //   new (a: string, b: number): XType;
+    // }
+    //
+    // declare var X: X;
+    //
+    // Possible underlying implementation:
+    // var X: X = class {
+    //   constructor(public a: string, public b: number) {}
+    //   c(): boolean { return this.b.toString() === this.a }
+    // }
+    //
+    // In TypeScript you could just write new X('abc', 123) and create an instance of
+    // XType. Dart doesn't support this when X is a variable, so X must be upgraded to
+    // be a class.
+
+    return declaration.members.find(base.isConstructor) as base.Constructor;
   }
 
   /**
@@ -349,7 +339,7 @@ export function normalizeSourceFile(
       undefined {
     const constructedTypeSymbol: ts.Symbol = constructor &&
         ts.isTypeReferenceNode(constructor.type) &&
-        fc.tc.getTypeAtLocation(constructor.type).symbol;
+        fc.tc.getTypeAtLocation(constructor.type).getSymbol();
     if (!constructedTypeSymbol) {
       return;
     }
@@ -382,28 +372,30 @@ export function normalizeSourceFile(
       statement.declarationList.declarations.forEach((variableDecl: ts.VariableDeclaration) => {
         if (ts.isIdentifier(variableDecl.name)) {
           const name = base.ident(variableDecl.name);
-          if (variableDecl.type) {
-            const variableType = variableDecl.type;
+          const variableType = variableDecl.type;
+          if (!variableType) {
+            return;
+          }
 
-            // Try to find a Constructor within the variable's type.
-            const constructor: base.Constructor = findConstructorInType(variableType);
-            // If we cannot find a constructor within the variable's type, we still need to check
-            // whether or not a type with the same name as the variable already exists. If it does,
-            // we must rename it. That type is not directly associated with this variable, so they
-            // cannot be combined.
-            if (!constructor) {
-              if (classes.has(name)) {
-                const existing = classes.get(name);
-                if (!ts.isInterfaceDeclaration(existing)) {
-                  return;
-                }
-                const clonedName = ts.getMutableClone(existing.name);
-                clonedName.escapedText = ts.escapeLeadingUnderscores(name + 'Interface');
-                existing.name = clonedName;
-              }
-              return;
-            }
+          // We need to find the declaration of the variable's type in order to acccess the
+          // members of that type.
+          let variableTypeDeclaration: ts.TypeLiteralNode|ts.InterfaceDeclaration;
+          if (ts.isTypeReferenceNode(variableType)) {
+            variableTypeDeclaration =
+                fc.getDeclarationOfReferencedType(variableType, (declaration: ts.Declaration) => {
+                  return ts.isTypeLiteralNode(declaration) ||
+                      ts.isInterfaceDeclaration(declaration);
+                }) as ts.TypeLiteralNode | ts.InterfaceDeclaration;
+          } else if (ts.isTypeLiteralNode(variableType)) {
+            variableTypeDeclaration = variableType;
+          }
+          if (!variableTypeDeclaration) {
+            return;
+          }
 
+          // Try to find a Constructor within the variable's type.
+          const constructor: base.Constructor = findConstructorInType(variableTypeDeclaration);
+          if (constructor) {
             // Get the type of object that the constructor creates.
             const constructedType = getConstructedObjectType(constructor);
 
@@ -435,69 +427,97 @@ export function normalizeSourceFile(
             clazz.flags = variableDecl.flags;
             fc.replaceNode(variableDecl, clazz);
             classes.set(name, clazz);
-
-            const existing = classes.get(name);
-            const members = existing.members;
-            const resolvedVariableType = constructor.parent as ts.ObjectTypeDeclaration;
-            resolvedVariableType.members.forEach((member: ts.TypeElement|ts.ClassElement) => {
-              // Array.prototype.push is used below as a small hack to get around NodeArrays being
-              // readonly.
-              switch (member.kind) {
-                case ts.SyntaxKind.Constructor:
-                case ts.SyntaxKind.ConstructorType:
-                case ts.SyntaxKind.ConstructSignature: {
-                  const clonedConstructor = ts.getMutableClone(member);
-                  clonedConstructor.name = ts.getMutableClone(variableDecl.name) as ts.PropertyName;
-                  clonedConstructor.parent = existing;
-
-                  const existingConstructIndex = members.findIndex(base.isConstructor);
-                  if (existingConstructIndex === -1) {
-                    Array.prototype.push.call(members, clonedConstructor);
-                  } else {
-                    Array.prototype.splice.call(members, existingConstructIndex, clonedConstructor);
+          } else {
+            if (renameConflictingTypes) {
+              // If we cannot find a constructor within the variable's type and the
+              // --rename-conflicting-types flag is set, we need to check whether or not a type
+              // with the same name as the variable already exists. If it does, we must rename it.
+              // That type is not directly associated with this variable, so they cannot be
+              // combined.
+              const existingSymbol = fc.tc.getSymbolAtLocation(variableDecl.name);
+              if (existingSymbol.getDeclarations()) {
+                for (const declaration of existingSymbol.getDeclarations()) {
+                  if (ts.isInterfaceDeclaration(declaration) ||
+                      ts.isTypeAliasDeclaration(declaration)) {
+                    declaration.name.escapedText = ts.escapeLeadingUnderscores(name + 'Type');
                   }
-                } break;
-                case ts.SyntaxKind.MethodSignature:
-                  member.parent = existing.parent;
-                  Array.prototype.push.call(members, member);
-                  break;
-                case ts.SyntaxKind.PropertySignature:
-                  if (!explicitStatic) {
-                    // Finds all existing declarations of this property in the inheritance
-                    // hierarchy of this class.
-                    const existingDeclarations =
-                        findPropertyInHierarchy(base.ident(member.name), existing, classes);
-
-                    if (existingDeclarations.size) {
-                      for (const existingDecl of existingDeclarations) {
-                        addModifier(existingDecl, ts.createModifier(ts.SyntaxKind.StaticKeyword));
-                      }
-                    }
-                  }
-
-                  // If needed, add declaration of property to the interface that we are
-                  // currently handling.
-                  if (!findPropertyInClass(base.ident(member.name), existing)) {
-                    if (!explicitStatic) {
-                      addModifier(member, ts.createModifier(ts.SyntaxKind.StaticKeyword));
-                    }
-                    member.parent = existing.parent;
-                    Array.prototype.push.call(members, member);
-                  }
-                  break;
-                case ts.SyntaxKind.IndexSignature:
-                  member.parent = existing.parent;
-                  Array.prototype.push.call(members, member);
-                  break;
-                case ts.SyntaxKind.CallSignature:
-                  member.parent = existing.parent;
-                  Array.prototype.push.call(members, member);
-                  break;
-                default:
-                  throw 'Unhandled TypeLiteral member type:' + member.kind;
+                }
               }
-            });
+              return;
+            } else if (!renameConflictingTypes && classes.has(name)) {
+              // If we cannot find a constructor and there exists a class with the exact same name,
+              // we assume by default that the variable and type are related as they have the exact
+              // same name. Thus, the variable declaration is suppressed and the members of its type
+              // are merged into the existing class below.
+              fc.suppressNode(variableDecl);
+            }
           }
+
+          // Merge the members of the variable's type into the existing class.
+          const existing = classes.get(name);
+          if (!existing) {
+            return;
+          }
+
+          const members = existing.members;
+          variableTypeDeclaration.members.forEach((member: ts.TypeElement|ts.ClassElement) => {
+            // Array.prototype.push is used below as a small hack to get around NodeArrays being
+            // readonly.
+            switch (member.kind) {
+              case ts.SyntaxKind.Constructor:
+              case ts.SyntaxKind.ConstructorType:
+              case ts.SyntaxKind.ConstructSignature: {
+                const clonedConstructor = ts.getMutableClone(member);
+                clonedConstructor.name = ts.getMutableClone(variableDecl.name) as ts.PropertyName;
+                clonedConstructor.parent = existing;
+
+                const existingConstructIndex = members.findIndex(base.isConstructor);
+                if (existingConstructIndex === -1) {
+                  Array.prototype.push.call(members, clonedConstructor);
+                } else {
+                  Array.prototype.splice.call(members, existingConstructIndex, clonedConstructor);
+                }
+              } break;
+              case ts.SyntaxKind.MethodSignature:
+                member.parent = existing.parent;
+                Array.prototype.push.call(members, member);
+                break;
+              case ts.SyntaxKind.PropertySignature:
+                if (!explicitStatic) {
+                  // Finds all existing declarations of this property in the inheritance
+                  // hierarchy of this class.
+                  const existingDeclarations =
+                      findPropertyInHierarchy(base.ident(member.name), existing, classes);
+
+                  if (existingDeclarations.size) {
+                    for (const existingDecl of existingDeclarations) {
+                      addModifier(existingDecl, ts.createModifier(ts.SyntaxKind.StaticKeyword));
+                    }
+                  }
+                }
+
+                // If needed, add declaration of property to the interface that we are
+                // currently handling.
+                if (!findPropertyInClass(base.ident(member.name), existing)) {
+                  if (!explicitStatic) {
+                    addModifier(member, ts.createModifier(ts.SyntaxKind.StaticKeyword));
+                  }
+                  member.parent = existing.parent;
+                  Array.prototype.push.call(members, member);
+                }
+                break;
+              case ts.SyntaxKind.IndexSignature:
+                member.parent = existing.parent;
+                Array.prototype.push.call(members, member);
+                break;
+              case ts.SyntaxKind.CallSignature:
+                member.parent = existing.parent;
+                Array.prototype.push.call(members, member);
+                break;
+              default:
+                throw 'Unhandled TypeLiteral member type:' + member.kind;
+            }
+          });
         } else {
           throw 'Unexpected VariableStatement identifier kind';
         }

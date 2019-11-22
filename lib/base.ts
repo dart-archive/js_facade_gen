@@ -71,8 +71,6 @@ export class ImportSummary {
 
 export type Constructor = ts.ConstructorDeclaration|ts.ConstructSignatureDeclaration;
 export type ClassLike = ts.ClassLikeDeclaration|ts.InterfaceDeclaration;
-export type NamedDeclaration = ClassLike|ts.PropertyDeclaration|ts.VariableDeclaration|
-                               ts.MethodDeclaration|ts.ModuleDeclaration|ts.FunctionDeclaration;
 
 /**
  * Interface extending the true InterfaceDeclaration interface to add optional state we store on
@@ -103,13 +101,6 @@ export function ident(n: ts.Node): string {
 export function isFunctionTypedefLikeInterface(ifDecl: ts.InterfaceDeclaration): boolean {
   return ifDecl.members && ifDecl.members.length === 1 &&
       ts.isCallSignatureDeclaration(ifDecl.members[0]);
-}
-
-export function getDeclaration(type: ts.Type): ts.Declaration {
-  let symbol = type.getSymbol();
-  if (!symbol) return null;
-  if (symbol.valueDeclaration) return symbol.valueDeclaration;
-  return symbol.declarations && symbol.declarations.length > 0 ? symbol.declarations[0] : null;
 }
 
 export function isExtendsClause(heritageClause: ts.HeritageClause) {
