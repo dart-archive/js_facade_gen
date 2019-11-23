@@ -777,9 +777,7 @@ abstract class XType {
 }
 
 @JS()
-class X {
-  // @Ignore
-  X.fakeConstructor$();
+abstract class X {
   external String get a;
   external set a(String v);
   external num get b;
@@ -812,9 +810,7 @@ abstract class XType {
 }
 
 @JS()
-class X {
-  // @Ignore
-  X.fakeConstructor$();
+abstract class X {
   external String get a;
   external set a(String v);
   external static num get b;
@@ -831,9 +827,7 @@ declare var C: {new(): C; CHECKING: number; }`)
           .to.equal(`import "dart:html" show Event;
 
 @JS()
-class C {
-  // @Ignore
-  C.fakeConstructor$();
+abstract class C {
   external dynamic Function(Event) get oncached;
   external set oncached(dynamic Function(Event) v);
   external factory C();
@@ -854,9 +848,7 @@ declare var X: {
   prototype: X,
   new(a: string, b: number): X
 };`).to.equal(`@JS()
-class X {
-  // @Ignore
-  X.fakeConstructor$();
+abstract class X {
   external String get a;
   external set a(String v);
   external num get b;
@@ -877,9 +869,7 @@ declare var X: {
   prototype: X,
   new(a: string, b: number): X
 };`).to.equal(`@JS()
-class X {
-  // @Ignore
-  X.fakeConstructor$();
+abstract class X {
   external String get a;
   external set a(String v);
   external static num get b;
@@ -895,9 +885,7 @@ interface Y { c: number; }
 declare var X: {prototype: X, new (): X, b: string};
 declare var Y: {prototype: Y, new (): Y, d: string};
 `).to.equal(`@JS()
-class X {
-  // @Ignore
-  X.fakeConstructor$();
+abstract class X {
   external num get a;
   external set a(num v);
   external factory X();
@@ -906,9 +894,7 @@ class X {
 }
 
 @JS()
-class Y {
-  // @Ignore
-  Y.fakeConstructor$();
+abstract class Y {
   external num get c;
   external set c(num v);
   external factory Y();
@@ -950,9 +936,7 @@ abstract class Y {
 }
 
 @JS()
-class X {
-  // @Ignore
-  X.fakeConstructor$();
+abstract class X {
   external String get a;
   external set a(String v);
   external num get b;
@@ -987,9 +971,7 @@ abstract class XType {
 
 // Module m1
 @JS("m1.X")
-class X {
-  // @Ignore
-  X.fakeConstructor$();
+abstract class X {
   external String get a;
   external set a(String v);
   external num get b;
@@ -1027,9 +1009,7 @@ abstract class XType {
 }
 
 @JS()
-class X {
-  // @Ignore
-  X.fakeConstructor$();
+abstract class X {
   external String get a;
   external set a(String v);
   external num get b;
@@ -1064,9 +1044,7 @@ abstract class XType {
 }
 
 @JS()
-class X {
-  // @Ignore
-  X.fakeConstructor$();
+abstract class X {
   external String get a;
   external set a(String v);
   external static num get b;
@@ -1109,9 +1087,7 @@ abstract class X {
 }
 
 @JS()
-class Y {
-  // @Ignore
-  Y.fakeConstructor$();
+abstract class Y {
   external String get a;
   external set a(String v);
   external num get b;
@@ -1146,9 +1122,7 @@ abstract class XType {
 
 // Module m1
 @JS("m1.X")
-class X {
-  // @Ignore
-  X.fakeConstructor$();
+abstract class X {
   external String get a;
   external set a(String v);
   external num get b;
@@ -1224,9 +1198,7 @@ describe('flags', () => {
             }`,
         generateHTMLOpts)
         .to.equal(`@JS()
-class AbstractRange {
-  // @Ignore
-  AbstractRange.fakeConstructor$();
+abstract class AbstractRange {
   external bool get collapsed;
   external num get endOffset;
   external num get startOffset;
@@ -1260,9 +1232,7 @@ abstract class CacheBase {
 }
 
 @JS()
-class MyCache implements CacheBase {
-  // @Ignore
-  MyCache.fakeConstructor$();
+abstract class MyCache implements CacheBase {
   external factory MyCache();
   external static num get CHECKING;
   external static num get DOWNLOADING;
@@ -1300,9 +1270,7 @@ abstract class CacheBase {
 }
 
 @JS()
-class MyCache implements CacheBase {
-  // @Ignore
-  MyCache.fakeConstructor$();
+abstract class MyCache implements CacheBase {
   external factory MyCache();
   external num get CHECKING;
   external num get DOWNLOADING;

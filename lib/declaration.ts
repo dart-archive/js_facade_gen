@@ -60,18 +60,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
 
     let classDecl = base.getEnclosingClass(node);
     if (classDecl) {
-      if (ts.isInterfaceDeclaration(classDecl)) {
-        let interfaceDecl = classDecl as base.ExtendedInterfaceDeclaration;
-        if (interfaceDecl.classLikeVariableDeclaration) {
-          // We upgrade these variable interface declarations to behave more
-          // like class declarations as we have a valid concrete JS class to
-          // an appropriate class object.
-          return this.getJsPath(interfaceDecl.classLikeVariableDeclaration, false);
-        }
-        return '';
-      } else {
-        path.push(classDecl.name.text);
-      }
+      path.push(classDecl.name.text);
     }
 
     if (ts.isModuleDeclaration(node)) {
@@ -104,7 +93,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       const extendedInterfaceDecl = node as base.ExtendedInterfaceDeclaration;
       // If we were able to associate a variable declaration with the interface definition then the
       // interface isn't actually anonymous.
-      return !extendedInterfaceDecl.classLikeVariableDeclaration;
+      return !extendedInterfaceDecl.constructedType;
     } else if (this.trustJSTypes && ts.isClassLike(node)) {
       // If the trust-js-types flag is set, @anonymous tags are emitted on all classes that don't
       // have any constructors or any static members.
@@ -198,7 +187,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
   }
 
   /**
-   * Returns whether all members of the class and all base classes
+   * Returns whether all members of the class and all base classes are properties.
    */
   hasOnlyProperties(decl: ts.InterfaceDeclaration, outProperties: ts.PropertyDeclaration[]):
       boolean {
@@ -243,7 +232,21 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
     let properties: ts.PropertyDeclaration[] = [];
     let isPropertyBag = false;
     if (ts.isInterfaceDeclaration(decl)) {
-      isPropertyBag = this.hasOnlyProperties(decl, properties);
+      const extendedInterfaceDecl = decl as base.ExtendedInterfaceDeclaration;
+      const constructedType = extendedInterfaceDecl.constructedType;
+      if (constructedType) {
+        // If this interface is the upgraded version of a variable whose type contained a
+        // constructor, we must check the type hierarchy of the original type, as well as the
+        // properties of the new merged interface.
+        if (ts.isInterfaceDeclaration(constructedType)) {
+          isPropertyBag = this.hasOnlyProperties(constructedType, properties) &&
+              this.hasOnlyPropertiesHelper(decl.members, properties);
+        } else if (ts.isTypeLiteralNode(constructedType)) {
+          isPropertyBag = this.hasOnlyPropertiesHelper(decl.members, properties);
+        }
+      } else {
+        isPropertyBag = this.hasOnlyProperties(decl, properties);
+      }
     } else if (ts.isTypeLiteralNode(decl)) {
       isPropertyBag = this.hasOnlyPropertiesHelper(decl.members, properties);
     }
