@@ -158,12 +158,12 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
       this.visit(name);
       return;
     }
-    // Have to rewrite names in this case as we could have conflicts
-    // due to needing to support multiple JS modules in a single Dart module
+    // Have to rewrite names in this case as we could have conflicts due to needing to support
+    // multiple JS modules in a single Dart module.
     if (!ts.isIdentifier(name)) {
       throw 'Internal error: unexpected function name kind:' + name.kind;
     }
-    let entry = this.fc.lookupCustomDartTypeName(name);
+    let entry = this.fc.lookupDartValueName(name);
     if (entry) {
       this.emit(entry.name);
       return;
@@ -813,7 +813,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         if (name.kind !== ts.SyntaxKind.Identifier) {
           this.reportError(name, 'Unexpected name kind:' + name.kind);
         }
-        this.fc.visitTypeName(name);
+        this.visitName(name);
       }
 
       if (fn.typeParameters && fn.typeParameters.length > 0) {

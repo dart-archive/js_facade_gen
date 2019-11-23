@@ -1089,9 +1089,7 @@ declare interface X {
   new(a: string, b: number): YType;
 }
 
-declare type Y = X;
-
-declare var Y: Y;
+declare var Y: X;
 `).to.equal(`@anonymous
 @JS()
 abstract class XType {
@@ -1110,7 +1108,6 @@ abstract class X {
   /*external factory X(String a, num b);*/
 }
 
-/*declare type Y = X;*/
 @JS()
 class Y {
   // @Ignore
@@ -1162,18 +1159,50 @@ class X {
 
 // End module m1`);
     });
+  });
 
-    // Case where we cannot find a variable matching the interface so it is unsafe to give the
-    // interface a constructor.
-    expectTranslate(`
+  describe('cases where a type and a variable cannot be merged', () => {
+    it('should handle cases where an interface has no matching variable', () => {
+      // Case where we cannot find a variable matching the interface so it is unsafe to give the
+      // interface a constructor.
+      expectTranslate(`
 interface X {
-  new (a: string|bool, b: number): XType;
+  new (a: string|boolean, b: number): XType;
 }`).to.equal(`@anonymous
 @JS()
 abstract class X {
   // Constructors on anonymous interfaces are not yet supported.
   /*external factory X(String|bool a, num b);*/
 }`);
+    });
+  });
+  it('should merge variables and interfaces with the same name by default', () => {
+    expectTranslate(`
+interface X {
+  a: string;
+  b: number;
+  c(): boolean;
+}
+
+declare var X: { d: number[] };
+
+declare var x: X;
+`).to.equal(`@anonymous
+@JS()
+abstract class X {
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+  external static List<num> get d;
+  external static set d(List<num> v);
+}
+
+@JS()
+external X get x;
+@JS()
+external set x(X v);`);
   });
 });
 
@@ -1334,6 +1363,70 @@ class X {
   external static String get b;
   external static set b(String v);
 }`);
+  });
+
+  describe('--rename-conflicting-types', () => {
+    it('should merge variables and interfaces with the same name by default', () => {
+      expectTranslate(`
+interface X {
+  a: string;
+  b: number;
+  c(): boolean;
+}
+
+declare var X: { d: number[] };
+
+declare var x: X;
+`).to.equal(`@anonymous
+@JS()
+abstract class X {
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+  external static List<num> get d;
+  external static set d(List<num> v);
+}
+
+@JS()
+external X get x;
+@JS()
+external set x(X v);`);
+    });
+
+    it('should rename types that conflict with unrelated variables when the flag is set', () => {
+      const renameConflictingTypesOpts = {failFast: true, renameConflictingTypes: true};
+      expectTranslate(
+          `interface X {
+            a: string;
+            b: number;
+            c(): boolean;
+          }
+
+          declare var X: { a: number[], b: number[], c: number[] };
+
+          declare var x: X;`,
+          renameConflictingTypesOpts)
+          .to.equal(`@anonymous
+@JS()
+abstract class XType {
+  external String get a;
+  external set a(String v);
+  external num get b;
+  external set b(num v);
+  external bool c();
+}
+
+@JS()
+external dynamic /*{ a: number[], b: number[], c: number[] }*/ get X;
+@JS()
+external set X(dynamic /*{ a: number[], b: number[], c: number[] }*/ v);
+@JS()
+external XType get x;
+@JS()
+external set x(XType v);`);
+    });
   });
 });
 

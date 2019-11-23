@@ -66,27 +66,50 @@ external set x(dynamic /*{a: number, [k: string]: number}*/ v);`);
   it('should support union types', () => {
     expectTranslate('function foo() : number | number[];').to.equal(`@JS()
 external dynamic /*num|List<num>*/ foo();`);
-    expectTranslate('var x: number|List<string>;').to.equal(`@JS()
+    expectTranslate('var x: number|Array<string>;').to.equal(`@JS()
 external dynamic /*num|List<String>*/ get x;
 @JS()
 external set x(dynamic /*num|List<String>*/ v);`);
-    expectTranslate('function x(): number|List<{[k: string]: any}> {};').to.equal(`@JS()
+    expectTranslate('function x(): number|Array<{[k: string]: any}> {};').to.equal(`@JS()
 external dynamic /*num|List<JSMap of <String,dynamic>>*/ x();`);
   });
 
   it('should support intersection types', () => {
-    expectTranslate('function foo() : Foo & Bar;').to.equal(`@JS()
+    expectTranslate(`
+interface Foo { a: number, b: string }
+interface Bar { b: string }
+
+function foo() : Foo & Bar;
+`).to.equal(`@anonymous
+@JS()
+abstract class Foo {
+  external num get a;
+  external set a(num v);
+  external String get b;
+  external set b(String v);
+  external factory Foo({num a, String b});
+}
+
+@anonymous
+@JS()
+abstract class Bar {
+  external String get b;
+  external set b(String v);
+  external factory Bar({String b});
+}
+
+@JS()
 external Foo /*Foo&Bar*/ foo();`);
   });
 
   it('should support parenthesized types', () => {
     expectTranslate('function foo() : (number | number[]);').to.equal(`@JS()
 external dynamic /*num|List<num>*/ foo();`);
-    expectTranslate('var x: (number|List<string>);').to.equal(`@JS()
+    expectTranslate('var x: (number|Array<string>);').to.equal(`@JS()
 external dynamic /*num|List<String>*/ get x;
 @JS()
 external set x(dynamic /*num|List<String>*/ v);`);
-    expectTranslate('function x(): number|(List<{[k: string]: any}>) {};').to.equal(`@JS()
+    expectTranslate('function x(): number|(Array<{[k: string]: any}>) {};').to.equal(`@JS()
 external dynamic /*num|List<JSMap of <String,dynamic>>*/ x();`);
   });
 

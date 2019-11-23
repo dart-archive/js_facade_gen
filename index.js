@@ -4,11 +4,15 @@ const main = require('./build/lib/main.js');
 
 var args = require('minimist')(process.argv.slice(2), {
   base: 'string',
-  boolean: ['semantic-diagnostics', 'generate-html', 'explicit-static', 'trust-js-types'],
+  boolean: [
+    'semantic-diagnostics', 'generate-html', 'rename-conflicting-types', 'explicit-static',
+    'trust-js-types'
+  ],
   alias: {
     'base-path': 'basePath',
     'semantic-diagnostics': 'semanticDiagnostics',
     'generate-html': 'generateHTML',
+    'rename-conflicting-types': 'renameConflictingTypes',
     'explicit-static': 'explicitStatic',
     'trust-js-types': 'trustJSTypes'
   }
