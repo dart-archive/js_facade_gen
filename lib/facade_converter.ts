@@ -399,11 +399,16 @@ export class FacadeConverter extends base.TranspilerBase {
       const indexTypeName = this.generateDartTypeName(node.indexType, addInsideComment(options));
 
       comment = `${objectTypeName}[${indexTypeName}]`;
-    } else if (ts.isMappedTypeNode(node)) {
+    } else if (ts.isMappedTypeNode(node) || ts.isConditionalTypeNode(node)) {
       name = 'dynamic';
       if (ts.isTypeAliasDeclaration(node.parent)) {
-        // MappedTypeNodes don't contain information about the name or type arguments that were
-        // passed to the alias, so we have to get that information from the parent
+        // Declarations of mapped types and conditional types will be printed in a comment elsewhere
+        // in the file. Upon reaching a node of these kinds, we do not want to re-print the
+        // declaration. We just want to print the alias name and the type arguments that were
+        // passed.
+        // MappedTypeNodes and ConditionalTypeNodes don't contain information about the name or type
+        // arguments that were passed to the alias, so we have to get that information from the
+        // parent.
         const parent = node.parent;
         comment = parent.name.getText();
         if (parent.typeParameters && options.resolvedTypeArguments) {

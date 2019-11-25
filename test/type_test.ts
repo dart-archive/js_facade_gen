@@ -166,13 +166,50 @@ abstract class Todo {
 
 /*
  Warning: Mapped types are not supported in Dart. Uses of this type will be replaced by dynamic.
- type ReadonlyTodo = {
+type ReadonlyTodo = {
         readonly[P in keyof Todo]: Todo[P];
       }
 */
 @JS()
 external dynamic /*ReadonlyTodo*/ get todo;`);
     });
+  });
+
+  it('should support conditional types', () => {
+    expectTranslate(`
+type TypeName<T> = T extends string ? "string" :
+T extends string ? "string" :
+T extends number ? "number" :
+T extends boolean ? "boolean" :
+T extends undefined ? "undefined" :
+T extends Function ? "function" :
+"object";
+
+declare var x: TypeName<number>;
+declare var y: TypeName<string>;
+declare var z: TypeName<boolean>;`)
+        .to.equal(
+            `/*Warning: Conditional types are not supported in Dart. Uses of this type will be replaced by dynamic.
+type TypeName<T> = T extends string ? "string" :
+T extends string ? "string" :
+T extends number ? "number" :
+T extends boolean ? "boolean" :
+T extends undefined ? "undefined" :
+T extends Function ? "function" :
+"object";
+*/
+@JS()
+external dynamic /*TypeName<num>*/ get x;
+@JS()
+external set x(dynamic /*TypeName<num>*/ v);
+@JS()
+external dynamic /*TypeName<String>*/ get y;
+@JS()
+external set y(dynamic /*TypeName<String>*/ v);
+@JS()
+external dynamic /*TypeName<bool>*/ get z;
+@JS()
+external set z(dynamic /*TypeName<bool>*/ v);`);
   });
 });
 

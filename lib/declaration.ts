@@ -636,8 +636,12 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
             this.emit(
                 'Warning: Mapped types are not supported in Dart. Uses of this type will be replaced by dynamic.');
             this.emitNoSpace('\n');
+          } else if (ts.isConditionalTypeNode(alias.type)) {
+            this.emit(
+                'Warning: Conditional types are not supported in Dart. Uses of this type will be replaced by dynamic.');
+            this.emitNoSpace('\n');
           }
-          this.emit(alias.getText());
+          this.emitNoSpace(alias.getText());
           this.emitNoSpace('\n');
           this.exitCodeComment();
           this.emitNoSpace('\n');
