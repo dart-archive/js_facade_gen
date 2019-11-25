@@ -401,28 +401,40 @@ export function normalizeSourceFile(
 
             if (classes.has(name)) {
               const existing = classes.get(name);
-              // If a class with the same name as the variable already exists, we should suppress
-              // that declaration because it will be cloned into a stub class below.
+              // If a class or interface with the same name as the variable already exists, we
+              // should suppress that declaration because it will be cloned into a stub class or
+              // interface below.
               fc.suppressNode(existing);
             }
 
             // These properties do not exist on TypeLiteralNodes.
-            let clazzTypeParameters, clazzHeritageClauses, clazzMembers;
+            let clazzTypeParameters, clazzHeritageClauses;
             if (ts.isClassDeclaration(constructedType) ||
                 ts.isInterfaceDeclaration(constructedType)) {
               clazzTypeParameters = base.cloneNodeArray(constructedType.typeParameters);
               clazzHeritageClauses = base.cloneNodeArray(constructedType.heritageClauses);
-              clazzMembers =
-                  base.cloneNodeArray(constructedType.members as ts.NodeArray<ts.ClassElement>);
             }
-            const clazz = ts.createClassDeclaration(
-                base.cloneNodeArray(constructedType.decorators),
-                base.cloneNodeArray(constructedType.modifiers),
-                ts.getMutableClone(variableDecl.name),
-                base.cloneNodeArray(clazzTypeParameters),
-                base.cloneNodeArray(clazzHeritageClauses),
-                base.cloneNodeArray(clazzMembers),
-            );
+
+            let clazz: ts.InterfaceDeclaration|ts.ClassDeclaration;
+            if (ts.isClassDeclaration(constructedType)) {
+              clazz = ts.createClassDeclaration(
+                  base.cloneNodeArray(constructedType.decorators),
+                  base.cloneNodeArray(constructedType.modifiers),
+                  ts.getMutableClone(variableDecl.name), base.cloneNodeArray(clazzTypeParameters),
+                  base.cloneNodeArray(clazzHeritageClauses),
+                  base.cloneNodeArray(constructedType.members));
+            } else if (
+                ts.isTypeLiteralNode(constructedType) ||
+                ts.isInterfaceDeclaration(constructedType)) {
+              clazz = ts.createInterfaceDeclaration(
+                  base.cloneNodeArray(constructedType.decorators),
+                  base.cloneNodeArray(constructedType.modifiers),
+                  ts.getMutableClone(variableDecl.name), base.cloneNodeArray(clazzTypeParameters),
+                  base.cloneNodeArray(clazzHeritageClauses),
+                  base.cloneNodeArray(constructedType.members));
+              (clazz as base.ExtendedInterfaceDeclaration).constructedType = constructedType;
+            }
+
             base.copyLocation(variableDecl, clazz);
             clazz.flags = variableDecl.flags;
             fc.replaceNode(variableDecl, clazz);
@@ -434,9 +446,9 @@ export function normalizeSourceFile(
               // with the same name as the variable already exists. If it does, we must rename it.
               // That type is not directly associated with this variable, so they cannot be
               // combined.
-              const existingSymbol = fc.tc.getSymbolAtLocation(variableDecl.name);
-              if (existingSymbol.getDeclarations()) {
-                for (const declaration of existingSymbol.getDeclarations()) {
+              const variableSymbol = fc.getSymbolAtLocation(variableDecl.name);
+              if (variableSymbol.getDeclarations()) {
+                for (const declaration of variableSymbol.getDeclarations()) {
                   if (ts.isInterfaceDeclaration(declaration) ||
                       ts.isTypeAliasDeclaration(declaration)) {
                     declaration.name.escapedText = ts.escapeLeadingUnderscores(name + 'Type');

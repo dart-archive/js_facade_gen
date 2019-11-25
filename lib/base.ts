@@ -78,11 +78,11 @@ export type ClassLike = ts.ClassLikeDeclaration|ts.InterfaceDeclaration;
  */
 export interface ExtendedInterfaceDeclaration extends ts.InterfaceDeclaration {
   /**
-   * VariableDeclaration associated with this interface that we want to treat as the concrete
-   * location of this interface to enable interfaces that act like constructors.
-   * Because Dart does not permit calling objects like constructors we have to add this workaround.
+   * The type associated with this interface that we want to treat as the concrete location of this
+   * interface to enable interfaces that act like constructors. Because Dart does not permit calling
+   * objects like constructors we have to add this workaround.
    */
-  classLikeVariableDeclaration?: ts.VariableDeclaration;
+  constructedType?: ts.InterfaceDeclaration|ts.TypeLiteralNode;
 }
 
 export function ident(n: ts.Node): string {
