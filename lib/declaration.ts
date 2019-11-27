@@ -460,7 +460,7 @@ export default class DeclarationTranspiler extends base.TranspilerBase {
         const moduleDecl = <ts.ModuleDeclaration>node;
         const moduleName = base.getModuleName(moduleDecl);
         const moduleBlock = base.getModuleBlock(moduleDecl);
-        if (moduleName.slice(0, 2) === '..') {
+        if (moduleName.startsWith('..')) {
           this.emit(
               '\n// Library augmentation not allowed by Dart. Ignoring augmentation of ' +
               moduleDecl.name.text + '\n');

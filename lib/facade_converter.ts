@@ -1,3 +1,4 @@
+import {relative} from 'path';
 import * as ts from 'typescript';
 
 import * as base from './base';
@@ -288,7 +289,7 @@ export class FacadeConverter extends base.TranspilerBase {
   }
 
   private extractPropertyNames(m: Map<string, Map<string, string>>, candidates: Set<string>) {
-    for (let fileName of m.keys()) {
+    for (const fileName of m.keys()) {
       const file = m.get(fileName);
       if (file === undefined) {
         return;
@@ -739,12 +740,12 @@ export class FacadeConverter extends base.TranspilerBase {
         return null;
       }
 
-      const fileAndName = this.getFileAndName(identifier, symbol);
+      const fileAndName = this.getLibFileAndName(identifier, symbol);
 
       if (fileAndName) {
         let fileSubs = TS_TO_DART_TYPENAMES.get(fileAndName.fileName);
         if (fileSubs) {
-          let name = fileAndName.qname;
+          const name = fileAndName.qname;
           let dartBrowserType = DART_LIBRARIES_FOR_BROWSER_TYPES.has(name);
           if (fileSubs.has(name)) {
             let subName = fileSubs.get(name);
@@ -979,14 +980,16 @@ export class FacadeConverter extends base.TranspilerBase {
         */
   }
 
-  private getFileAndName(n: ts.Node, originalSymbol: ts.Symbol): {fileName: string, qname: string} {
+  private getLibFileAndName(n: ts.Node, originalSymbol: ts.Symbol):
+      {fileName: string, qname: string} {
     let symbol = originalSymbol;
-    while (symbol.flags & ts.SymbolFlags.Alias) symbol = this.tc.getAliasedSymbol(symbol);
+    while (symbol.flags & ts.SymbolFlags.Alias) {
+      symbol = this.tc.getAliasedSymbol(symbol);
+    }
     const decl = this.getTypeDeclarationOfSymbol(symbol, n);
 
-    const fileName = decl.getSourceFile().fileName;
-    const canonicalFileName = this.getRelativeFileName(fileName)
-                                  .replace(/(\.d)?\.ts$/, '')
+    const fileName = relative('./node_modules/typescript/lib', decl.getSourceFile().fileName);
+    const canonicalFileName = fileName.replace(/(\.d)?\.ts$/, '')
                                   .replace(FACADE_NODE_MODULES_PREFIX, '')
                                   .replace(this.typingsRootRegex, '');
 
@@ -996,7 +999,10 @@ export class FacadeConverter extends base.TranspilerBase {
     if (symbol.flags & (ts.SymbolFlags.Class | ts.SymbolFlags.Function | ts.SymbolFlags.Variable)) {
       qname = symbol.getName();
     }
-    if (FACADE_DEBUG) console.error('fn:', fileName, 'cfn:', canonicalFileName, 'qn:', qname);
+
+    if (FACADE_DEBUG) {
+      console.error('fn:', fileName, 'cfn:', canonicalFileName, 'qn:', qname);
+    }
     return {fileName: canonicalFileName, qname};
   }
 }

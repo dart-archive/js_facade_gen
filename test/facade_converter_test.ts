@@ -182,7 +182,14 @@ external List<String> /*ReadonlyArray<String>*/ f();`);
 
   describe('error detection', () => {
     it('supports imports', () => {
-      expectWithTypes(`import {X} from "other";\nlet x:X;`).to.equal(`import "other.dart" show X;
+      // In all tests, the main code has a fake location of FAKE_MAIN, which is declared
+      // to be '/demo/some/main.ts' within test_support.ts. At the top of this file, the 'other'
+      // module is declared to have a fake path of '/other.ts'. So, the correct import path for the
+      // other module is '../../other.dart'
+      expectWithTypes(`
+import {X} from "other";
+declare let x:X;
+`).to.equal(`import "../../other.dart" show X;
 
 @JS()
 external X get x;
