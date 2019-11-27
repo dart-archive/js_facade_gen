@@ -137,7 +137,7 @@ export class Transpiler {
     }
     fileNames = fileNames.map((name: string) => {
       const normalizedName = this.normalizeSlashes(name);
-      if (normalizedName.slice(0, 2) === './') {
+      if (normalizedName.startsWith('./')) {
         // The fileName property of SourceFiles omits ./ for files in the current directory
         return normalizedName.substring(2);
       }
