@@ -114,8 +114,7 @@ export class Transpiler {
   /* Number of nested levels of type arguments the current expression is within. */
   private typeArgumentDepth = 0;
 
-  constructor(private options: TranspilerOptions) {
-    this.options = this.options || {};
+  constructor(private options: TranspilerOptions = {}) {
     this.fc = new FacadeConverter(this, options.typingsRoot, options.generateHTML);
     this.declarationTranspiler = new DeclarationTranspiler(
         this, this.fc, options.enforceUnderscoreConventions, options.promoteFunctionLikeMembers,
@@ -130,13 +129,20 @@ export class Transpiler {
   /**
    * Transpiles the given files to Dart.
    * @param fileNames The input files.
-   * @param destination Location to write files to. Creates files next to their sources if absent.
+   * @param destination Location to write files to. Outputs file contents to stdout if absent.
    */
   transpile(fileNames: string[], destination?: string): void {
     if (this.options.basePath) {
       this.options.basePath = this.normalizeSlashes(path.resolve(this.options.basePath));
     }
-    fileNames = fileNames.map((f) => this.normalizeSlashes(f));
+    fileNames = fileNames.map((name: string) => {
+      const normalizedName = this.normalizeSlashes(name);
+      if (normalizedName.slice(0, 2) === './') {
+        // The fileName property of SourceFiles omits ./ for files in the current directory
+        return normalizedName.substring(2);
+      }
+      return normalizedName;
+    });
     const host = this.createCompilerHost();
     const program = ts.createProgram(fileNames, this.getCompilerOptions(), host);
     this.fc.setTypeChecker(program.getTypeChecker());
@@ -230,11 +236,10 @@ export class Transpiler {
   }
 
   getCompilerOptions() {
-    let opts: ts.CompilerOptions = {};
-    for (let k of Object.keys(COMPILER_OPTIONS)) opts[k] = COMPILER_OPTIONS[k];
+    const opts: ts.CompilerOptions = Object.assign({}, COMPILER_OPTIONS);
     opts.rootDir = this.options.basePath;
     if (this.options.generateHTML) {
-      // Prevent the TypeScript DOM library files from being compiled
+      // Prevent the TypeScript DOM library files from being compiled.
       opts.lib = ['lib.es2015.d.ts', 'lib.scripthost.d.ts'];
     }
     return opts;
@@ -243,22 +248,22 @@ export class Transpiler {
   private createCompilerHost(): ts.CompilerHost {
     const compilerOptions = this.getCompilerOptions();
     const compilerHost = ts.createCompilerHost(compilerOptions);
-    let defaultLibFileName = ts.getDefaultLibFileName(compilerOptions);
-    defaultLibFileName = this.normalizeSlashes(defaultLibFileName);
+    const defaultLibFileName = this.normalizeSlashes(ts.getDefaultLibFileName(compilerOptions));
     compilerHost.getSourceFile = (sourceName) => {
       let sourcePath = sourceName;
       if (sourceName === defaultLibFileName) {
         sourcePath = ts.getDefaultLibFilePath(compilerOptions);
       }
-      if (!fs.existsSync(sourcePath)) return undefined;
-      let contents = fs.readFileSync(sourcePath, 'utf-8');
+      if (!fs.existsSync(sourcePath)) {
+        return undefined;
+      }
+      const contents = fs.readFileSync(sourcePath, 'utf-8');
       return ts.createSourceFile(sourceName, contents, COMPILER_OPTIONS.target, true);
     };
     compilerHost.writeFile = (name, text, writeByteOrderMark) => {
       fs.writeFile(name, text, undefined);
     };
     compilerHost.useCaseSensitiveFileNames = () => true;
-    compilerHost.getCanonicalFileName = (filename) => filename;
     compilerHost.getCurrentDirectory = () => '';
     compilerHost.getNewLine = () => '\n';
     compilerHost.resolveModuleNames = getModuleResolver(compilerHost);
@@ -268,7 +273,7 @@ export class Transpiler {
 
   // Visible for testing.
   getOutputPath(filePath: string, destinationRoot: string): string {
-    let relative = this.getDartFileName(filePath);
+    const relative = this.getDartFileName(filePath);
     return this.normalizeSlashes(path.join(destinationRoot, relative));
   }
 
@@ -380,12 +385,13 @@ export class Transpiler {
    * @param filePath Optional path to relativize, defaults to the current file's path.
    */
   getRelativeFileName(filePath?: string): string {
-    if (filePath === undefined) filePath = path.resolve(this.currentFile.fileName);
-    // TODO(jacobr): Use path.isAbsolute on node v0.12.
-    if (this.normalizeSlashes(path.resolve('/x/', filePath)) !== filePath) {
+    if (filePath === undefined) {
+      filePath = path.resolve(this.currentFile.fileName);
+    }
+    if (!path.isAbsolute(filePath)) {
       return filePath;  // already relative.
     }
-    let basePath = this.options.basePath || '';
+    const basePath = this.options.basePath || '';
     if (filePath.indexOf(basePath) !== 0 && !filePath.match(/\.d\.ts$/)) {
       throw new Error(`Files must be located under base, got ${filePath} vs ${basePath}`);
     }
@@ -393,7 +399,9 @@ export class Transpiler {
   }
 
   getDartFileName(filePath?: string): string {
-    if (filePath === undefined) filePath = path.resolve(this.currentFile.fileName);
+    if (filePath === undefined) {
+      filePath = path.resolve(this.currentFile.fileName);
+    }
     filePath = this.normalizeSlashes(filePath);
     filePath = filePath.replace(/\.(js|es6|d\.ts|ts)$/, '.dart');
     // Normalize from node module file path pattern to

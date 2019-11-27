@@ -182,7 +182,10 @@ external List<String> /*ReadonlyArray<String>*/ f();`);
 
   describe('error detection', () => {
     it('supports imports', () => {
-      expectWithTypes(`import {X} from "other";\nlet x:X;`).to.equal(`import "other.dart" show X;
+      expectWithTypes(`
+import {X} from "other";
+declare let x:X;
+`).to.equal(`import "../../other.dart" show X;
 
 @JS()
 external X get x;

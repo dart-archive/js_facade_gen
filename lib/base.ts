@@ -443,25 +443,26 @@ export class TranspilerBase {
   }
 
   /**
-   * Return resolved named possibly including a prefix for the identifier.
+   * Return resolved name possibly including a prefix for the identifier.
    */
   resolveImportForSourceFile(sourceFile: ts.SourceFile, context: ts.SourceFile, identifier: string):
       string {
-    if (sourceFile === context) return identifier;
+    if (sourceFile === context) {
+      return identifier;
+    }
     if (sourceFile.hasNoDefaultLib) {
       // We don't want to emit imports to default lib libraries as we replace with Dart equivalents
       // such as dart:html, etc.
       return identifier;
     }
-    let relativePath = path.relative(path.dirname(context.fileName), sourceFile.fileName);
-    // TODO(jacobr): actually handle imports in different directories. We assume for now that all
-    // files in a library will be output to a single directory for codegen simplicity.
-    let parts = this.getDartFileName(relativePath).split('/');
-    let fileName = parts[parts.length - 1];
-    let identifierParts = identifier.split('.');
+    const relativePath = path.relative(path.dirname(context.fileName), sourceFile.fileName);
+    const fileName = this.getDartFileName(relativePath);
+    const identifierParts = identifier.split('.');
     identifier = identifierParts[identifierParts.length - 1];
-    let summary = this.addImport(this.transpiler.getDartFileName(fileName), identifier);
-    if (summary.asPrefix) return summary.asPrefix + '.' + identifier;
+    const summary = this.addImport(this.transpiler.getDartFileName(fileName), identifier);
+    if (summary.asPrefix) {
+      return summary.asPrefix + '.' + identifier;
+    }
     return identifier;
   }
 

@@ -3,11 +3,12 @@
 const main = require('./build/lib/main.js');
 
 var args = require('minimist')(process.argv.slice(2), {
-  base: 'string',
+  string: ['base-path'],
   boolean: [
     'semantic-diagnostics', 'generate-html', 'rename-conflicting-types', 'explicit-static',
     'trust-js-types'
   ],
+  default: {'base-path': ''},
   alias: {
     'base-path': 'basePath',
     'semantic-diagnostics': 'semanticDiagnostics',

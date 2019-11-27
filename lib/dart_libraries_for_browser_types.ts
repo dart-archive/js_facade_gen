@@ -974,7 +974,7 @@ const STDLIB_TYPE_REPLACEMENTS = new Map(Object.entries({
 }));
 
 export const TS_TO_DART_TYPENAMES = new Map(Object.entries({
-  'typescript/lib/lib.es5': STDLIB_TYPE_REPLACEMENTS,
-  'typescript/lib/lib.es6': STDLIB_TYPE_REPLACEMENTS,
-  'typescript/lib/lib.dom': STDLIB_TYPE_REPLACEMENTS
+  'lib.es5': STDLIB_TYPE_REPLACEMENTS,
+  'lib.es6': STDLIB_TYPE_REPLACEMENTS,
+  'lib.dom': STDLIB_TYPE_REPLACEMENTS
 }));
