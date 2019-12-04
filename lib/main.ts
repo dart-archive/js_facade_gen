@@ -385,6 +385,9 @@ export class Transpiler {
       result += output.getResult();
     }
 
+    if (this.options.skipFormatting) {
+      return result;
+    }
     return this.formatCode(result, sourceFile);
   }
 
