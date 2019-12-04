@@ -471,22 +471,6 @@ export class TranspilerBase {
     this.transpiler.reportError(n, message);
   }
 
-  /**
-   * Prevents this node from being visited.
-   */
-  suppressNode(n: ts.Node) {
-    const emptyNode = ts.createNode(ts.SyntaxKind.EmptyStatement);
-    copyLocation(n, emptyNode);
-    this.replaceNode(n, emptyNode);
-  }
-
-  /**
-   * Effectively replaces original with replacement in the AST.
-   */
-  replaceNode(original: ts.Node, replacement: ts.Node) {
-    this.transpiler.nodeSubstitutions.set(original, replacement);
-  }
-
   visitNode(n: ts.Node): boolean {
     throw new Error('not implemented');
   }

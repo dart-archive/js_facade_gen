@@ -77,8 +77,9 @@ describe('module name', () => {
   });
   it('adds module name', () => {
     let results = translateSources(
-        {'/a/b/c.ts': 'var x;'}, {failFast: true, moduleName: 'sample_module', basePath: '/a'});
-    chai.expect(results['/a/b/c.ts']).to.equal(`@JS("sample_module")
+        new Map(Object.entries({'/a/b/c.ts': 'var x;'})),
+        {failFast: true, moduleName: 'sample_module', basePath: '/a'});
+    chai.expect(results.get('/a/b/c.ts')).to.equal(`@JS("sample_module")
 library b.c;
 
 import "package:js/js.dart";

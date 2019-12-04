@@ -616,26 +616,6 @@ export class FacadeConverter extends base.TranspilerBase {
     }
   }
 
-  replaceNode(original: ts.Node, replacement: ts.Node) {
-    if (ts.isVariableDeclaration(original) &&
-        (ts.isInterfaceDeclaration(replacement) || ts.isClassDeclaration(replacement))) {
-      // Handle the speical case in mergeVariablesIntoClasses where we upgrade variable declarations
-      // to interfaces or classes.
-      const symbol = this.tc.getSymbolAtLocation(original.name);
-      symbol.declarations = symbol.getDeclarations().map((declaration: ts.Declaration) => {
-        // TODO(derekx): Changing the declarations of a symbol like this is a hack. It would be
-        // cleaner and safer to generate a new Program and TypeChecker after performing
-        // gatherClasses and mergeVariablesIntoClasses.
-        if (declaration === original) {
-          return replacement;
-        }
-        return declaration;
-      });
-    }
-
-    super.replaceNode(original, replacement);
-  }
-
   getSymbolAtLocation(identifier: ts.EntityName) {
     let symbol = this.tc.getSymbolAtLocation(identifier);
     while (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = this.tc.getAliasedSymbol(symbol);

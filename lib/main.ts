@@ -23,6 +23,11 @@ export interface TranspilerOptions {
    */
   semanticDiagnostics?: boolean;
   /**
+   * Skip running dart-format on the output. This is useful for large files (like dom.d.ts) since
+   * the node package version of dart-format is significantly slower than the version in the SDK.
+   */
+  skipFormatting?: boolean;
+  /**
    * Specify the module name (e.g.) d3 instead of determining the module name from the d.ts files.
    * This is useful for libraries that assume they will be loaded with a JS module loader but that
    * Dart needs to load without a module loader until Dart supports JS module loaders.
@@ -82,7 +87,7 @@ export const COMPILER_OPTIONS: ts.CompilerOptions = {
 /**
  * Context to ouput code into.
  */
-export enum OutputContext {
+export const enum OutputContext {
   Import = 0,
   Header = 1,
   Default = 2,
@@ -132,6 +137,8 @@ export class Transpiler {
    * @param destination Location to write files to. Outputs file contents to stdout if absent.
    */
   transpile(fileNames: string[], destination?: string): void {
+    this.errors = [];
+
     if (this.options.basePath) {
       this.options.basePath = this.normalizeSlashes(path.resolve(this.options.basePath));
     }
@@ -143,96 +150,142 @@ export class Transpiler {
       }
       return normalizedName;
     });
-    const host = this.createCompilerHost();
-    const program = ts.createProgram(fileNames, this.getCompilerOptions(), host);
+    // Only write files that were explicitly passed in.
+    const fileSet = new Set(fileNames);
+
+    const sourceFileMap: Map<string, ts.SourceFile> = new Map();
+    const host = this.createCompilerHost(sourceFileMap);
+
+    this.normalizeSourceFiles(fileSet, sourceFileMap, host);
+    // Create a new program after performing source file transformations.
+    const normalizedProgram = ts.createProgram(fileNames, this.getCompilerOptions(), host);
+    const translatedResults = this.translateProgram(normalizedProgram, fileNames);
+
+    for (const fileName of translatedResults.keys()) {
+      if (destination) {
+        const outputFile = this.getOutputPath(path.resolve(fileName), destination);
+        console.log('Output file:', outputFile);
+        mkdirP(path.dirname(outputFile));
+        fs.writeFileSync(outputFile, translatedResults.get(fileName));
+      } else {
+        // Write source code directly to the console when no destination is specified.
+        console.log(translatedResults.get(fileName));
+      }
+    }
+    this.checkForErrors(normalizedProgram);
+  }
+
+  translateProgram(program: ts.Program, entryPoints: string[]): Map<string, string> {
     this.fc.setTypeChecker(program.getTypeChecker());
     this.declarationTranspiler.setTypeChecker(program.getTypeChecker());
 
-    // Only write files that were explicitly passed in.
-    const fileSet = new Set(fileNames);
-    const sourceFiles = program.getSourceFiles().filter((sourceFile) => {
-      return fileSet.has(sourceFile.fileName);
-    });
-
+    const paths: Map<string, string> = new Map();
     this.errors = [];
+    program.getSourceFiles()
+        .filter((f: ts.SourceFile) => entryPoints.includes(f.fileName))
+        .forEach((f) => paths.set(f.fileName, this.translate(f)));
+    this.checkForErrors(program);
+    return paths;
+  }
 
-    const sourceFileMap: Map<string, ts.SourceFile> = new Map();
+  /**
+   * Preliminary processing of source files to make them compatible with Dart.
+   *
+   * Propagates namespace export declarations and merges related classes and variables.
+   *
+   * @param fileNames The input files.
+   * @param sourceFileMap A map that is used to access SourceFiles by their file names. The
+   *     normalized files will be stored in this map.
+   * @param compilerHost The TS compiler host.
+   */
+  normalizeSourceFiles(
+      fileNames: Set<string>, sourceFileMap: Map<string, ts.SourceFile>,
+      compilerHost: ts.CompilerHost) {
+    const program =
+        ts.createProgram(Array.from(fileNames), this.getCompilerOptions(), compilerHost);
+
+    if (program.getSyntacticDiagnostics().length > 0) {
+      // Throw first error.
+      const first = program.getSyntacticDiagnostics()[0];
+      const error = new Error(`${first.start}: ${first.messageText} in ${first.file.fileName}`);
+      error.name = 'DartFacadeError';
+      throw error;
+    }
+
+    this.fc.setTypeChecker(program.getTypeChecker());
+
+    const sourceFiles =
+        program.getSourceFiles().filter((f: ts.SourceFile) => fileNames.has(f.fileName));
+
     sourceFiles.forEach((f: ts.SourceFile) => {
       sourceFileMap.set(f.fileName, f);
     });
 
-    // Check for global module export declarations and propogate them to all modules they export.
     sourceFiles.forEach((f: ts.SourceFile) => {
-      f.statements.forEach((n: ts.Node) => {
-        if (!ts.isNamespaceExportDeclaration(n)) return;
-        // This is the name we are interested in for Dart purposes until Dart supports AMD module
-        // loaders. This module name should all be reflected by all modules exported by this
-        // library as we need to specify a global module location for every Dart library.
-        let globalModuleName = base.ident(n.name);
-        f.moduleName = globalModuleName;
+      this.propagateNamespaceExportDeclarations(f, sourceFileMap, compilerHost);
+    });
 
-        const missingFiles: string[] = [];
-        f.statements.forEach((e: ts.Node) => {
-          if (!ts.isExportDeclaration(e)) return;
-          let exportDecl = e;
-          if (!exportDecl.moduleSpecifier) return;
-          let moduleLocation = <ts.StringLiteral>exportDecl.moduleSpecifier;
-          let location = moduleLocation.text;
-          let resolvedPath = host.resolveModuleNames(
-              [location], f.fileName, undefined, undefined, this.getCompilerOptions());
-          resolvedPath.forEach((p) => {
-            if (p.isExternalLibraryImport) return;
-            const exportedFile = sourceFileMap.get(p.resolvedFileName);
-            if (exportedFile) {
-              exportedFile.moduleName = globalModuleName;
-            } else {
-              missingFiles.push(p.resolvedFileName);
-            }
-          });
-        });
-        if (missingFiles.length) {
-          const error = new Error();
-          error.message =
-              'The following files were referenced but were not supplied as a command line arguments. Reference the README for usage instructions.';
-          for (const file of missingFiles) {
-            error.message += '\n';
-            error.message += file;
-          }
-          error.name = 'DartFacadeError';
-          throw error;
+    sourceFiles.forEach((f: ts.SourceFile) => {
+      const normalizedFile = merge.normalizeSourceFile(
+          f, this.fc, fileNames, this.options.renameConflictingTypes, this.options.explicitStatic);
+
+      sourceFileMap.set(f.fileName, normalizedFile);
+    });
+  }
+
+  /**
+   * Check for namespace export declarations and propagate them to all modules they export.
+   *
+   * Namespace export declarations are used to declare UMD modules. The syntax for
+   * them is 'export as namespace MyNamespace;'. This means that exported members of module
+   * MyNamespace can be accessed through the global variable 'MyNamespace' within script files. Or
+   * within source files, by importing them like you would import other modular libraries.
+   */
+  private propagateNamespaceExportDeclarations(
+      sourceFile: ts.SourceFile,
+      sourceFileMap: Map<string, ts.SourceFile>,
+      compilerHost: ts.CompilerHost,
+  ) {
+    let globalModuleName: string;
+    sourceFile.forEachChild((n: ts.Node) => {
+      if (!ts.isNamespaceExportDeclaration(n)) return;
+      // This is the name we are interested in for Dart purposes until Dart supports AMD module
+      // loaders. This module name should all be reflected by all modules exported by this
+      // library as we need to specify a global module location for every Dart library.
+      globalModuleName = base.ident(n.name);
+      sourceFile.moduleName = globalModuleName;
+    });
+
+    const missingFiles: string[] = [];
+    sourceFile.statements.forEach((e: ts.Node) => {
+      if (!ts.isExportDeclaration(e)) return;
+      let exportDecl = e;
+      if (!exportDecl.moduleSpecifier) return;
+      let moduleLocation = <ts.StringLiteral>exportDecl.moduleSpecifier;
+      let location = moduleLocation.text;
+      let resolvedPath = compilerHost.resolveModuleNames(
+          [location], sourceFile.fileName, undefined, undefined, this.getCompilerOptions());
+      resolvedPath.forEach((p) => {
+        if (!p || p.isExternalLibraryImport) return;
+        const exportedFile = sourceFileMap.get(p.resolvedFileName);
+        if (exportedFile) {
+          exportedFile.moduleName = globalModuleName;
+        } else {
+          missingFiles.push(p.resolvedFileName);
         }
       });
     });
-
-    sourceFiles.forEach((f: ts.SourceFile) => {
-      const dartCode = this.translate(f, fileSet);
-
-      if (destination) {
-        const outputFile = this.getOutputPath(path.resolve(f.fileName), destination);
-        console.log('Output file:', outputFile);
-        mkdirP(path.dirname(outputFile));
-        fs.writeFileSync(outputFile, dartCode);
-      } else {
-        // Write source code directly to the console when no destination is specified.
-        console.log(dartCode);
+    if (missingFiles.length) {
+      const error = new Error();
+      error.message =
+          'The following files were referenced but were not supplied as a command line arguments. Reference the README for usage instructions.';
+      for (const file of missingFiles) {
+        error.message += '\n';
+        error.message += file;
       }
-    });
-    this.checkForErrors(program);
-  }
-
-  translateProgram(program: ts.Program): {[path: string]: string} {
-    this.fc.setTypeChecker(program.getTypeChecker());
-    this.declarationTranspiler.setTypeChecker(program.getTypeChecker());
-
-    let paths: {[path: string]: string} = {};
-    this.errors = [];
-    program.getSourceFiles()
-        .filter(
-            (sourceFile: ts.SourceFile) =>
-                (!sourceFile.fileName.match(/\.d\.ts$/) && !!sourceFile.fileName.match(/\.[jt]s$/)))
-        .forEach((f) => paths[f.fileName] = this.translate(f, new Set([f.fileName])));
-    this.checkForErrors(program);
-    return paths;
+      error.name = 'DartFacadeError';
+      throw error;
+    }
   }
 
   getCompilerOptions() {
@@ -245,7 +298,7 @@ export class Transpiler {
     return opts;
   }
 
-  private createCompilerHost(): ts.CompilerHost {
+  private createCompilerHost(sourceFileMap: Map<string, ts.SourceFile>): ts.CompilerHost {
     const compilerOptions = this.getCompilerOptions();
     const compilerHost = ts.createCompilerHost(compilerOptions);
     const defaultLibFileName = this.normalizeSlashes(ts.getDefaultLibFileName(compilerOptions));
@@ -253,6 +306,8 @@ export class Transpiler {
       let sourcePath = sourceName;
       if (sourceName === defaultLibFileName) {
         sourcePath = ts.getDefaultLibFilePath(compilerOptions);
+      } else if (sourceFileMap.has(sourceName)) {
+        return sourceFileMap.get(sourceName);
       }
       if (!fs.existsSync(sourcePath)) {
         return undefined;
@@ -288,7 +343,7 @@ export class Transpiler {
     this.outputStack.pop();
   }
 
-  private translate(sourceFile: ts.SourceFile, fileSet: Set<string>): string {
+  private translate(sourceFile: ts.SourceFile): string {
     this.currentFile = sourceFile;
     this.outputs = [];
     this.outputStack = [];
@@ -298,9 +353,6 @@ export class Transpiler {
     }
 
     this.lastCommentIdx = -1;
-    merge.normalizeSourceFile(
-        sourceFile, this.fc, fileSet, this.options.renameConflictingTypes,
-        this.options.explicitStatic);
     this.pushContext(OutputContext.Default);
     this.visit(sourceFile);
     this.popContext();
@@ -332,6 +384,7 @@ export class Transpiler {
     for (let output of this.outputs) {
       result += output.getResult();
     }
+
     return this.formatCode(result, sourceFile);
   }
 
