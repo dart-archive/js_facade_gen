@@ -1,15 +1,15 @@
 import {expectTranslate, FAKE_MAIN} from './test_support';
 
-function getSources(str: string): {[k: string]: string} {
-  let srcs: {[k: string]: string} = {
+function getSources(str: string): Map<string, string> {
+  const srcs: Map<string, string> = new Map(Object.entries({
     'other.ts': `
         export class X {
           map(x: number): string { return String(x); }
           static get(m: any, k: string): number { return m[k]; }
         }
     `,
-  };
-  srcs[FAKE_MAIN] = str;
+  }));
+  srcs.set(FAKE_MAIN, str);
   return srcs;
 }
 

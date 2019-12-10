@@ -1,5 +1,6 @@
-import ts = require('typescript');
-import base = require('./base');
+import * as ts from 'typescript';
+
+import * as base from './base';
 import {FacadeConverter} from './facade_converter';
 
 /**
@@ -242,12 +243,13 @@ export class MergedMember {
 }
 
 /**
- * Normalize a SourceFile
+ * Normalize a SourceFile.
  */
 export function normalizeSourceFile(
     f: ts.SourceFile, fc: FacadeConverter, fileSet: Set<string>, renameConflictingTypes = false,
     explicitStatic = false) {
-  let modules: Map<string, ts.ModuleDeclaration> = new Map();
+  const nodeReplacements: Map<ts.Node, ts.Node> = new Map();
+  const modules: Map<string, ts.ModuleDeclaration> = new Map();
 
   // Merge top level modules.
   for (let i = 0; i < f.statements.length; ++i) {
@@ -404,7 +406,7 @@ export function normalizeSourceFile(
               // If a class or interface with the same name as the variable already exists, we
               // should suppress that declaration because it will be cloned into a stub class or
               // interface below.
-              fc.suppressNode(existing);
+              nodeReplacements.set(existing, undefined);
             }
 
             // These properties do not exist on TypeLiteralNodes.
@@ -420,7 +422,8 @@ export function normalizeSourceFile(
               clazz = ts.createClassDeclaration(
                   base.cloneNodeArray(constructedType.decorators),
                   base.cloneNodeArray(constructedType.modifiers),
-                  ts.getMutableClone(variableDecl.name), base.cloneNodeArray(clazzTypeParameters),
+                  ts.createIdentifier(base.ident(variableDecl.name)),
+                  base.cloneNodeArray(clazzTypeParameters),
                   base.cloneNodeArray(clazzHeritageClauses),
                   base.cloneNodeArray(constructedType.members));
             } else if (
@@ -429,7 +432,8 @@ export function normalizeSourceFile(
               clazz = ts.createInterfaceDeclaration(
                   base.cloneNodeArray(constructedType.decorators),
                   base.cloneNodeArray(constructedType.modifiers),
-                  ts.getMutableClone(variableDecl.name), base.cloneNodeArray(clazzTypeParameters),
+                  ts.createIdentifier(base.ident(variableDecl.name)),
+                  base.cloneNodeArray(clazzTypeParameters),
                   base.cloneNodeArray(clazzHeritageClauses),
                   base.cloneNodeArray(constructedType.members));
               (clazz as base.ExtendedInterfaceDeclaration).constructedType = constructedType;
@@ -437,7 +441,7 @@ export function normalizeSourceFile(
 
             base.copyLocation(variableDecl, clazz);
             clazz.flags = variableDecl.flags;
-            fc.replaceNode(variableDecl, clazz);
+            nodeReplacements.set(n, clazz);
             classes.set(name, clazz);
           } else {
             if (renameConflictingTypes) {
@@ -461,7 +465,7 @@ export function normalizeSourceFile(
               // we assume by default that the variable and type are related as they have the exact
               // same name. Thus, the variable declaration is suppressed and the members of its type
               // are merged into the existing class below.
-              fc.suppressNode(variableDecl);
+              nodeReplacements.set(variableDecl, undefined);
             }
           }
 
@@ -591,7 +595,7 @@ export function normalizeSourceFile(
           Array.prototype.push.call(existing.members, e);
           e.parent = existing;
         });
-        fc.suppressNode(classDecl);
+        nodeReplacements.set(classDecl, undefined);
       } else {
         classes.set(name, classDecl);
         // Perform other class level post processing here.
@@ -604,5 +608,21 @@ export function normalizeSourceFile(
       ts.forEachChild(n, (child) => gatherClasses(child, classes));
     }
   }
+
+  /**
+   * AST transformer that handles nodes that we have marked for removal or replacement during
+   * mergeVariablesIntoClasses.
+   */
+  function handleModifiedNodes(context: ts.TransformationContext) {
+    const visit: ts.Visitor = (node: ts.Node) => {
+      if (nodeReplacements.has(node)) {
+        return nodeReplacements.get(node);
+      }
+      return ts.visitEachChild(node, (child) => visit(child), context);
+    };
+    return (node: ts.SourceFile) => ts.visitNode(node, visit);
+  }
+
   gatherClasses(f, new Map());
+  return ts.transform(f, [handleModifiedNodes]).transformed[0];
 }

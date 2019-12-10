@@ -1,57 +1,55 @@
-import chai = require('chai');
-import fs = require('fs');
-import main = require('../lib/main');
-import ts = require('typescript');
+import * as chai from 'chai';
+import * as fs from 'fs';
+import * as ts from 'typescript';
 
-export type StringMap = {
-  [k: string]: string
-};
-export type Input = string|StringMap;
+import * as main from '../lib/main';
 
-export function expectTranslate(tsCode: Input, options?: main.TranspilerOptions) {
-  options = options || {};
-  let result = translateSource(tsCode, options);
+export type Input = string|Map<string, string>;
+
+export function expectTranslate(tsCode: Input, options: main.TranspilerOptions = {}) {
+  const result = translateSource(tsCode, options);
   return chai.expect(result);
 }
 
-export function expectErroneousCode(tsCode: Input, options?: main.TranspilerOptions) {
-  options = options || {};
+export function expectErroneousCode(tsCode: Input, options: main.TranspilerOptions = {}) {
   options.failFast = false;  // Collect *all* errors.
   return chai.expect(() => translateSource(tsCode, options));
 }
 
-let compilerOptions = main.COMPILER_OPTIONS;
-let defaultLibFileName = ts.getDefaultLibFileName(compilerOptions);
-let libSourceFiles: Map<string, ts.SourceFile> = new Map();
+const defaultLibFileName = ts.getDefaultLibFileName(main.COMPILER_OPTIONS);
+// Used to cache library files so that they don't need to be re-parsed for each test.
+const libSourceFiles: Map<string, ts.SourceFile> = new Map();
 
-export function parseFiles(
-    nameToContent: StringMap, customCompilerOptions: ts.CompilerOptions): ts.Program {
-  let result: string;
-  let compilerHost = ts.createCompilerHost(customCompilerOptions);
+export function parseAndNormalizeFiles(
+    nameToContent: Map<string, string>, transpiler: main.Transpiler): ts.Program {
+  const compilerOptions = transpiler.getCompilerOptions();
+  const sourceFileMap: Map<string, ts.SourceFile> = new Map();
+
+  let compilerHost = ts.createCompilerHost(compilerOptions);
   compilerHost.getSourceFile = (sourceName) => {
     let sourcePath = sourceName;
     if (sourcePath === defaultLibFileName) {
-      sourcePath = ts.getDefaultLibFilePath(customCompilerOptions);
-    } else if (nameToContent.hasOwnProperty(sourcePath)) {
+      sourcePath = ts.getDefaultLibFilePath(compilerOptions);
+    } else if (sourceFileMap.has(sourceName)) {
+      return sourceFileMap.get(sourceName);
+    } else if (nameToContent.has(sourcePath)) {
       return ts.createSourceFile(
-          sourcePath, nameToContent[sourcePath], customCompilerOptions.target, true);
+          sourcePath, nameToContent.get(sourcePath), compilerOptions.target, true);
     } else if (!fs.existsSync(sourcePath)) {
       return undefined;
     }
 
     if (!libSourceFiles.has(sourcePath)) {
-      let contents = fs.readFileSync(sourcePath, 'utf-8');
+      const contents = fs.readFileSync(sourcePath, 'utf-8');
       // Cache to avoid excessive test times.
       libSourceFiles.set(
-          sourcePath,
-          ts.createSourceFile(sourcePath, contents, customCompilerOptions.target, true));
+          sourcePath, ts.createSourceFile(sourcePath, contents, compilerOptions.target, true));
     }
     return libSourceFiles.get(sourcePath);
   };
-  compilerHost.writeFile = (name, text, writeByteOrderMark) => {
-    result = text;
+  compilerHost.fileExists = (sourceName) => {
+    return nameToContent.has(sourceName);
   };
-  compilerHost.fileExists = (sourceName) => !!nameToContent[sourceName];
   compilerHost.readFile = () => {
     throw new Error('unexpected call to readFile');
   };
@@ -60,43 +58,43 @@ export function parseFiles(
   compilerHost.getCurrentDirectory = () => 'fakeDir';
   compilerHost.resolveModuleNames = main.getModuleResolver(compilerHost);
 
-  // Create a program from inputs
-  let entryPoints = Object.keys(nameToContent);
-  let program: ts.Program = ts.createProgram(entryPoints, customCompilerOptions, compilerHost);
-  if (program.getSyntacticDiagnostics().length > 0) {
-    // Throw first error.
-    let first = program.getSyntacticDiagnostics()[0];
-    throw new Error(`${first.start}: ${first.messageText} in ${nameToContent[entryPoints[0]]}`);
-  }
-  return program;
+  // Create a program from inputs.
+  const entryPoints = new Set(nameToContent.keys());
+
+  transpiler.normalizeSourceFiles(entryPoints, sourceFileMap, compilerHost);
+
+  // Create a new program after performing source file transformations.
+  const updatedProgram = ts.createProgram(Array.from(entryPoints), compilerOptions, compilerHost);
+  return updatedProgram;
 }
 
 export const FAKE_MAIN = 'demo/some/main.ts';
 
-export function translateSources(contents: Input, options?: main.TranspilerOptions): StringMap {
-  options = options || {};
+export function translateSources(
+    contents: Input, options: main.TranspilerOptions = {}): Map<string, string> {
   // Default to quick stack traces.
-  if (!options.hasOwnProperty('failFast')) options.failFast = true;
+  if (!options.hasOwnProperty('failFast')) {
+    options.failFast = true;
+  }
 
-  let namesToContent: StringMap;
+  let namesToContent: Map<string, string>;
   if (typeof contents === 'string') {
-    namesToContent = {};
-    namesToContent[FAKE_MAIN] = contents;
+    namesToContent = new Map();
+    namesToContent.set(FAKE_MAIN, contents);
   } else {
     namesToContent = contents;
   }
   options.enforceUnderscoreConventions = true;
-  let transpiler = new main.Transpiler(options);
-  let program = parseFiles(namesToContent, transpiler.getCompilerOptions());
-  return transpiler.translateProgram(program);
+  const transpiler = new main.Transpiler(options);
+  const program = parseAndNormalizeFiles(namesToContent, transpiler);
+  return transpiler.translateProgram(program, Array.from(namesToContent.keys()));
 }
 
-export function translateSource(contents: Input, options?: main.TranspilerOptions): string {
-  options = options || {};
-  let results = translateSources(contents, options);
+export function translateSource(contents: Input, options: main.TranspilerOptions = {}): string {
+  const results = translateSources(contents, options);
   // Return the main outcome, from 'main.ts'.
-  let result = results[FAKE_MAIN];
-  // strip out the package:js import as it clutters the output.
+  let result = results.get(FAKE_MAIN);
+  // Strip out the package:js import as it clutters the output.
   result = result.replace(/import "package:js\/js.dart";\s+/g, '');
   result = result.replace(/^@JS\("?[^)]*"?\)\s+library [^;]+;\s+/g, '');
   return result.trim();
