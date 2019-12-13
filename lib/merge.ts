@@ -429,6 +429,9 @@ export function normalizeSourceFile(
             } else if (
                 ts.isTypeLiteralNode(constructedType) ||
                 ts.isInterfaceDeclaration(constructedType)) {
+              // TODO(derekx): Try creating abstract class declarations in these cases.
+              // InterfaceDeclarations get emitted as abstract classes regardless, it would just
+              // make the JSON output more accurate.
               clazz = ts.createInterfaceDeclaration(
                   base.cloneNodeArray(constructedType.decorators),
                   base.cloneNodeArray(constructedType.modifiers),
@@ -495,10 +498,11 @@ export function normalizeSourceFile(
                 }
               } break;
               case ts.SyntaxKind.MethodSignature:
-                member.parent = existing.parent;
+                member.parent = existing;
                 Array.prototype.push.call(members, member);
                 break;
               case ts.SyntaxKind.PropertySignature:
+                // TODO(derekx): This should also be done to methods.
                 if (!explicitStatic) {
                   // Finds all existing declarations of this property in the inheritance
                   // hierarchy of this class.
@@ -518,16 +522,16 @@ export function normalizeSourceFile(
                   if (!explicitStatic) {
                     addModifier(member, ts.createModifier(ts.SyntaxKind.StaticKeyword));
                   }
-                  member.parent = existing.parent;
+                  member.parent = existing;
                   Array.prototype.push.call(members, member);
                 }
                 break;
               case ts.SyntaxKind.IndexSignature:
-                member.parent = existing.parent;
+                member.parent = existing;
                 Array.prototype.push.call(members, member);
                 break;
               case ts.SyntaxKind.CallSignature:
-                member.parent = existing.parent;
+                member.parent = existing;
                 Array.prototype.push.call(members, member);
                 break;
               default:

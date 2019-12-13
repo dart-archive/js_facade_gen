@@ -1,0 +1,14 @@
+export {GetAccessorDeclaration, SetAccessorDeclaration} from './accessor_declarations';
+export {CallSignatureDeclaration} from './call_signature_declaration';
+export {ClassDeclaration} from './class_declaration';
+export {ConstructSignatureDeclaration} from './construct_signature_declaration';
+export {ConstructorDeclaration} from './constructor_declaration';
+export {FunctionDeclaration} from './function_declaration';
+export {InterfaceDeclaration} from './interface_declaration';
+export {MemberDeclaration, MethodDeclaration, PropertyDeclaration} from './member_declaration';
+export {NamedDeclaration} from './named_declaration';
+export {ParameterDeclaration} from './parameter_declaration';
+export {SignatureDeclaration} from './signature_declaration';
+export {TypeAliasDeclaration} from './type_alias_declaration';
+export {TypeParameterDeclaration} from './type_parameter_declaration';
+export {VariableDeclaration} from './variable_declaration';
