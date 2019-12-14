@@ -105,6 +105,9 @@ export function convertTypeNode(node: ts.TypeNode): Type {
     return undefined;
   } else if (ts.isFunctionTypeNode(node)) {
     return new FunctionType(node);
+  } else if (ts.isArrayTypeNode(node)) {
+    const arrayTypeAsReference = ts.createTypeReferenceNode('Array', [node.elementType]);
+    return new TypeReference(arrayTypeAsReference);
   } else {
     const error = new Error(`Unexpected TypeNode kind: ${ts.SyntaxKind[node.kind]}`);
     error.name = 'DartFacadeError';
