@@ -4,7 +4,7 @@ import {ExportAssignment, ExportDeclaration, ImportDeclaration, ModuleDeclaratio
 import {CallSignatureDeclaration, ClassDeclaration, ConstructorDeclaration, ConstructSignatureDeclaration, FunctionDeclaration, GetAccessorDeclaration, IndexSignatureDeclaration, InterfaceDeclaration, MemberDeclaration, MethodDeclaration, ParameterDeclaration, PropertyDeclaration, SetAccessorDeclaration, TypeAliasDeclaration, TypeParameterDeclaration, VariableDeclaration} from './named_declarations';
 import {Node} from './node';
 import {SourceFile} from './source_file';
-import {FunctionType, IndexedAccessType, isKeywordTypeNode, KeywordType, LiteralType, ParenthesizedType, Type, TypeLiteral, TypeQuery, TypeReference} from './types';
+import {FunctionType, IndexedAccessType, IntersectionType, isKeywordTypeNode, KeywordType, LiteralType, ParenthesizedType, Type, TypeLiteral, TypeQuery, TypeReference} from './types';
 import {UnionType} from './types';
 import {VariableStatement} from './variable_statement';
 
@@ -111,6 +111,8 @@ export function convertTypeNode(node: ts.TypeNode): Type {
     return new TypeReference(arrayTypeAsReference);
   } else if (ts.isUnionTypeNode(node)) {
     return new UnionType(node);
+  } else if (ts.isIntersectionTypeNode(node)) {
+    return new IntersectionType(node);
   } else if (ts.isParenthesizedTypeNode(node)) {
     return new ParenthesizedType(node);
   } else if (ts.isIndexedAccessTypeNode(node)) {

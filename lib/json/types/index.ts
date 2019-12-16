@@ -1,5 +1,6 @@
 export {FunctionType} from './function_type';
 export {IndexedAccessType} from './indexed_access_type';
+export {IntersectionType} from './intersection_type';
 export {isKeywordTypeNode, KeywordType} from './keyword_type';
 export {LiteralType} from './literal_type';
 export {ParenthesizedType} from './parenthesized_type';
