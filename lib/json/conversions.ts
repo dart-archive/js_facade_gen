@@ -5,6 +5,7 @@ import {CallSignatureDeclaration, ClassDeclaration, ConstructorDeclaration, Cons
 import {Node} from './node';
 import {SourceFile} from './source_file';
 import {FunctionType, isKeywordTypeNode, KeywordType, LiteralType, Type, TypeLiteral, TypeReference} from './types';
+import {UnionType} from './types';
 import {VariableStatement} from './variable_statement';
 
 /**
@@ -108,6 +109,8 @@ export function convertTypeNode(node: ts.TypeNode): Type {
   } else if (ts.isArrayTypeNode(node)) {
     const arrayTypeAsReference = ts.createTypeReferenceNode('Array', [node.elementType]);
     return new TypeReference(arrayTypeAsReference);
+  } else if (ts.isUnionTypeNode(node)) {
+    return new UnionType(node);
   } else {
     const error = new Error(`Unexpected TypeNode kind: ${ts.SyntaxKind[node.kind]}`);
     error.name = 'DartFacadeError';
