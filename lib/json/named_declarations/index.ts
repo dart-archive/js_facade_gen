@@ -4,6 +4,7 @@ export {ClassDeclaration} from './class_declaration';
 export {ConstructSignatureDeclaration} from './construct_signature_declaration';
 export {ConstructorDeclaration} from './constructor_declaration';
 export {FunctionDeclaration} from './function_declaration';
+export {IndexSignatureDeclaration} from './index_signature_declaration';
 export {InterfaceDeclaration} from './interface_declaration';
 export {MemberDeclaration, MethodDeclaration, PropertyDeclaration} from './member_declaration';
 export {NamedDeclaration} from './named_declaration';

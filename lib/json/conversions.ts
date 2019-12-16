@@ -1,7 +1,7 @@
 import * as ts from 'typescript';
 
 import {ExportAssignment, ExportDeclaration, ImportDeclaration, ModuleDeclaration} from './module_declarations';
-import {CallSignatureDeclaration, ClassDeclaration, ConstructorDeclaration, ConstructSignatureDeclaration, FunctionDeclaration, GetAccessorDeclaration, InterfaceDeclaration, MemberDeclaration, MethodDeclaration, ParameterDeclaration, PropertyDeclaration, SetAccessorDeclaration, TypeAliasDeclaration, TypeParameterDeclaration, VariableDeclaration} from './named_declarations';
+import {CallSignatureDeclaration, ClassDeclaration, ConstructorDeclaration, ConstructSignatureDeclaration, FunctionDeclaration, GetAccessorDeclaration, IndexSignatureDeclaration, InterfaceDeclaration, MemberDeclaration, MethodDeclaration, ParameterDeclaration, PropertyDeclaration, SetAccessorDeclaration, TypeAliasDeclaration, TypeParameterDeclaration, VariableDeclaration} from './named_declarations';
 import {Node} from './node';
 import {SourceFile} from './source_file';
 import {FunctionType, isKeywordTypeNode, KeywordType, LiteralType, Type, TypeLiteral, TypeReference} from './types';
@@ -195,6 +195,9 @@ export function convertMember(member: ts.ClassElement|ts.TypeElement): MemberDec
   }
   if (ts.isCallSignatureDeclaration(member)) {
     return new CallSignatureDeclaration(member);
+  }
+  if (ts.isIndexSignatureDeclaration(member)) {
+    return new IndexSignatureDeclaration(member);
   }
   const error = new Error(`Unexpected Member kind: ${ts.SyntaxKind[member.kind]}`);
   error.name = 'DartFacadeError';
