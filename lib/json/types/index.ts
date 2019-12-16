@@ -5,5 +5,6 @@ export {LiteralType} from './literal_type';
 export {ParenthesizedType} from './parenthesized_type';
 export {Type} from './type';
 export {TypeLiteral} from './type_literal';
+export {TypeQuery} from './type_query';
 export {TypeReference} from './type_reference';
 export {UnionType} from './union_type';
