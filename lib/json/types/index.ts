@@ -7,6 +7,7 @@ export {ParenthesizedType} from './parenthesized_type';
 export {TupleType} from './tuple_type';
 export {Type} from './type';
 export {TypeLiteral} from './type_literal';
+export {TypeOperator} from './type_operator';
 export {TypeQuery} from './type_query';
 export {TypeReference} from './type_reference';
 export {UnionType} from './union_type';
