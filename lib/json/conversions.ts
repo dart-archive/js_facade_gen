@@ -112,7 +112,7 @@ export function convertTypeNode(node: ts.TypeNode): Type {
   } else if (ts.isTypeLiteralNode(node)) {
     return new TypeLiteral(node);
   } else if (ts.isLiteralTypeNode(node)) {
-    return undefined;
+    return convertLiteralTypeNode(node);
   } else if (ts.isFunctionTypeNode(node)) {
     return new FunctionType(node);
   } else if (ts.isArrayTypeNode(node)) {
@@ -176,8 +176,8 @@ export function convertKeywordTypeNode(node: ts.KeywordTypeNode): KeywordType {
 }
 
 export function convertLiteralTypeNode(node: ts.LiteralTypeNode): LiteralType {
-  if (ts.isLiteralExpression(node)) {
-    return new LiteralType(node, node.text);
+  if (ts.isLiteralExpression(node.literal)) {
+    return new LiteralType(node, node.literal.text);
   } else {
     switch (node.literal.kind) {
       case ts.SyntaxKind.TrueKeyword:
