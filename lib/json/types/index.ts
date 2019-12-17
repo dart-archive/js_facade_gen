@@ -4,6 +4,7 @@ export {IntersectionType} from './intersection_type';
 export {isKeywordTypeNode, KeywordType} from './keyword_type';
 export {LiteralType} from './literal_type';
 export {ParenthesizedType} from './parenthesized_type';
+export {TupleType} from './tuple_type';
 export {Type} from './type';
 export {TypeLiteral} from './type_literal';
 export {TypeQuery} from './type_query';
