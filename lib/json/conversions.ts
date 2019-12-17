@@ -3,6 +3,7 @@ import * as ts from 'typescript';
 import {ExportAssignment, ExportDeclaration, ImportDeclaration, ModuleDeclaration} from './module_declarations';
 import {CallSignatureDeclaration, ClassDeclaration, ConstructorDeclaration, ConstructSignatureDeclaration, FunctionDeclaration, GetAccessorDeclaration, IndexSignatureDeclaration, InterfaceDeclaration, MemberDeclaration, MethodDeclaration, ParameterDeclaration, PropertyDeclaration, SetAccessorDeclaration, TypeAliasDeclaration, TypeParameterDeclaration, VariableDeclaration} from './named_declarations';
 import {Node} from './node';
+import {ObjectBindingPattern} from './object_binding_pattern';
 import {SourceFile} from './source_file';
 import {FunctionType, IndexedAccessType, IntersectionType, isKeywordTypeNode, KeywordType, LiteralType, ParenthesizedType, Type, TypeLiteral, TypeQuery, TypeReference} from './types';
 import {UnionType} from './types';
@@ -20,8 +21,7 @@ export function filterUndefined(node: Node): boolean {
 /**
  * Helper function that converts Names into strings.
  */
-export function convertName(node: ts.DeclarationName|ts.EntityName|ts.BindingName|
-                            ts.QualifiedName): string {
+export function convertName(node: ts.DeclarationName|ts.EntityName|ts.QualifiedName): string {
   if (ts.isIdentifier(node) || ts.isStringLiteralLike(node)) {
     return node.text;
   }
@@ -32,6 +32,15 @@ export function convertName(node: ts.DeclarationName|ts.EntityName|ts.BindingNam
     }
   }
   const error = new Error(`Unexpected Name kind: ${ts.SyntaxKind[node.kind]}`);
+  error.name = 'DartFacadeError';
+  throw error;
+}
+
+export function convertBindingName(node: ts.BindingName) {
+  if (ts.isObjectBindingPattern(node)) {
+    return new ObjectBindingPattern(node);
+  }
+  const error = new Error(`Unexpected BindingName kind: ${ts.SyntaxKind[node.kind]}`);
   error.name = 'DartFacadeError';
   throw error;
 }

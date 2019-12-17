@@ -294,14 +294,14 @@ describe('classes', () => {
                     kind: ConvertedSyntaxKind.Parameter,
                     name: 'a',
                     optional: false,
-                    destructured: false,
+                    rest: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
                   },
                   {
                     kind: ConvertedSyntaxKind.Parameter,
                     name: 'b',
                     optional: false,
-                    destructured: false,
+                    rest: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'}
                   }
                 ]
@@ -364,7 +364,7 @@ describe('classes', () => {
               kind: ConvertedSyntaxKind.Parameter,
               name: 'v',
               optional: false,
-              destructured: false,
+              rest: false,
               type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
             }],
           }]
@@ -526,7 +526,7 @@ declare class X {
                 modifiers: [{kind: ConvertedSyntaxKind.PublicModifier}],
                 name: 'a',
                 optional: false,
-                destructured: false,
+                rest: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
               },
               {
@@ -534,7 +534,7 @@ declare class X {
                 modifiers: [{kind: ConvertedSyntaxKind.PrivateModifier}],
                 name: '_b',
                 optional: false,
-                destructured: false,
+                rest: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'},
                 initializer: '\'hello\''
               }

@@ -9,7 +9,7 @@ import {NamedDeclaration} from './named_declaration';
 export class ParameterDeclaration extends NamedDeclaration {
   private type: Type;
   private optional = false;
-  private destructured = false;
+  private rest = false;
   private initializer?: string;
 
   constructor(node: tsParameterDeclaration) {
@@ -20,7 +20,7 @@ export class ParameterDeclaration extends NamedDeclaration {
       this.optional = true;
     }
     if (node.dotDotDotToken) {
-      this.destructured = true;
+      this.rest = true;
     }
     if (node.initializer) {
       this.initializer = convertExpression(node.initializer);

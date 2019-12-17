@@ -211,14 +211,14 @@ describe('interfaces', () => {
                     kind: ConvertedSyntaxKind.Parameter,
                     name: 'a',
                     optional: false,
-                    destructured: false,
+                    rest: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
                   },
                   {
                     kind: ConvertedSyntaxKind.Parameter,
                     name: 'b',
                     optional: false,
-                    destructured: false,
+                    rest: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'}
                   }
                 ]
@@ -301,7 +301,7 @@ describe('interfaces', () => {
                     kind: ConvertedSyntaxKind.Parameter,
                     name: 'y',
                     optional: false,
-                    destructured: false,
+                    rest: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
                   }],
                   type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'}
@@ -331,14 +331,14 @@ declare interface X {
                   kind: ConvertedSyntaxKind.Parameter,
                   name: 'a',
                   optional: false,
-                  destructured: false,
+                  rest: false,
                   type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
                 },
                 {
                   kind: ConvertedSyntaxKind.Parameter,
                   name: 'b',
                   optional: false,
-                  destructured: false,
+                  rest: false,
                   type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'}
                 }
               ],

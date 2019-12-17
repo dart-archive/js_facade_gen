@@ -75,14 +75,14 @@ declare var X: { new(a: number, b: string): XType };
                     kind: ConvertedSyntaxKind.Parameter,
                     name: 'a',
                     optional: false,
-                    destructured: false,
+                    rest: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
                   },
                   {
                     kind: ConvertedSyntaxKind.Parameter,
                     name: 'b',
                     optional: false,
-                    destructured: false,
+                    rest: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'}
                   }
                 ],
@@ -168,14 +168,14 @@ declare var X: X;
                     kind: ConvertedSyntaxKind.Parameter,
                     name: 'a',
                     optional: false,
-                    destructured: false,
+                    rest: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
                   },
                   {
                     kind: ConvertedSyntaxKind.Parameter,
                     name: 'b',
                     optional: false,
-                    destructured: false,
+                    rest: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'}
                   }
                 ],
@@ -232,7 +232,7 @@ declare var X: {
                   kind: ConvertedSyntaxKind.Parameter,
                   name: 'n',
                   optional: false,
-                  destructured: false,
+                  rest: false,
                   type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
                 }],
                 type: {kind: ConvertedSyntaxKind.TypeReference, typeName: 'XType'}
@@ -300,7 +300,7 @@ declare var X: {
                       kind: ConvertedSyntaxKind.Parameter,
                       name: 'n',
                       optional: false,
-                      destructured: false,
+                      rest: false,
                       type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
                     }],
                     type: {kind: ConvertedSyntaxKind.TypeReference, typeName: 'XType'}

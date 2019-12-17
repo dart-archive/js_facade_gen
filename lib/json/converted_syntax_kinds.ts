@@ -214,8 +214,8 @@ export type ConvertedNamedDeclarationKind =
     ConvertedSyntaxKind.InterfaceDeclaration|
     ConvertedSyntaxKind.ClassDeclaration|ConvertedSyntaxKind.PropertyDeclaration|
     ConvertedSyntaxKind.MethodDeclaration|
-    ConvertedSyntaxKind.TypeAliasDeclaration|ConvertedSyntaxKind.TypeParameter|
-    ConvertedSignatureKind;
+    ConvertedSyntaxKind.TypeAliasDeclaration|
+    ConvertedSyntaxKind.TypeParameter|ConvertedSignatureKind|ConvertedSyntaxKind.BindingElement;
 
 export type ConvertedSignatureKind =
     ConvertedSyntaxKind.FunctionType|ConvertedSyntaxKind.FunctionDeclaration|
