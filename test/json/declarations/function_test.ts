@@ -127,11 +127,13 @@ describe('functions', () => {
                   {
                     kind: ConvertedSyntaxKind.PropertyDeclaration,
                     name: 'a',
+                    optional: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
                   },
                   {
                     kind: ConvertedSyntaxKind.PropertyDeclaration,
                     name: 'b',
+                    optional: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'}
                   }
                 ]
