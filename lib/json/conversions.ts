@@ -5,7 +5,7 @@ import {CallSignatureDeclaration, ClassDeclaration, ConstructorDeclaration, Cons
 import {Node} from './node';
 import {ObjectBindingPattern} from './object_binding_pattern';
 import {SourceFile} from './source_file';
-import {FunctionType, IndexedAccessType, IntersectionType, isKeywordTypeNode, KeywordType, LiteralType, ParenthesizedType, TupleType, Type, TypeLiteral, TypeOperator, TypeQuery, TypeReference} from './types';
+import {FunctionType, IndexedAccessType, IntersectionType, isKeywordTypeNode, KeywordType, LiteralType, ParenthesizedType, TupleType, Type, TypeLiteral, TypeOperator, TypePredicate, TypeQuery, TypeReference} from './types';
 import {UnionType} from './types';
 import {VariableStatement} from './variable_statement';
 
@@ -132,6 +132,8 @@ export function convertTypeNode(node: ts.TypeNode): Type {
     return new TupleType(node);
   } else if (ts.isTypeOperatorNode(node)) {
     return new TypeOperator(node);
+  } else if (ts.isTypePredicateNode(node)) {
+    return new TypePredicate(node);
   } else {
     const error = new Error(`Unexpected TypeNode kind: ${ts.SyntaxKind[node.kind]}`);
     error.name = 'DartFacadeError';

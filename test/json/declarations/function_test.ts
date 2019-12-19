@@ -101,7 +101,7 @@ describe('functions', () => {
     }));
   });
 
-  it('supports rest object parameters', () => {
+  it('supports destructured object parameters', () => {
     expectTranslateJSON('declare function f({a, b}: {a:number, b: string}): void;')
         .to.equal(prettyStringify({
           kind: ConvertedSyntaxKind.SourceFile,
@@ -142,5 +142,30 @@ describe('functions', () => {
             type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'void'}
           }]
         }));
+  });
+
+  it('supports type predicate return types', () => {
+    expectTranslateJSON('declare function f(x: object): x is number;').to.equal(prettyStringify({
+      kind: ConvertedSyntaxKind.SourceFile,
+      fileName: 'demo/some/main.ts',
+      statements: [{
+        kind: ConvertedSyntaxKind.FunctionDeclaration,
+        modifiers: [],
+        name: 'f',
+        parameters: [{
+          kind: ConvertedSyntaxKind.Parameter,
+          name: 'x',
+          optional: false,
+          rest: false,
+          type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'object'}
+        }],
+        type: {
+          kind: ConvertedSyntaxKind.TypePredicate,
+          assertsModifier: false,
+          parameterName: 'x',
+          type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
+        }
+      }]
+    }));
   });
 });
