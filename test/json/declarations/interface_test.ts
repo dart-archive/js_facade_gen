@@ -133,11 +133,13 @@ describe('interfaces', () => {
                 {
                   kind: ConvertedSyntaxKind.PropertyDeclaration,
                   name: 'a',
+                  optional: false,
                   type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
                 },
                 {
                   kind: ConvertedSyntaxKind.PropertyDeclaration,
                   name: 'b',
+                  optional: false,
                   type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'}
                 }
               ]
@@ -156,6 +158,7 @@ describe('interfaces', () => {
           members: [{
             kind: ConvertedSyntaxKind.MethodDeclaration,
             name: 'f',
+            optional: false,
             type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'void'},
             parameters: []
           }]
@@ -173,6 +176,7 @@ describe('interfaces', () => {
               members: [{
                 kind: ConvertedSyntaxKind.MethodDeclaration,
                 name: 'f',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'boolean'},
                 parameters: [
                   {
@@ -208,11 +212,30 @@ describe('interfaces', () => {
                 kind: ConvertedSyntaxKind.MethodDeclaration,
                 modifiers: [{kind: ConvertedSyntaxKind.AbstractModifier}],
                 name: 'f',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
                 parameters: []
               }]
             }]
           }));
+    });
+
+    it('supports optional', () => {
+      expectTranslateJSON('declare interface X { a?: number }').to.equal(prettyStringify({
+        kind: ConvertedSyntaxKind.SourceFile,
+        fileName: 'demo/some/main.ts',
+        statements: [{
+          kind: ConvertedSyntaxKind.InterfaceDeclaration,
+          modifiers: [],
+          name: 'X',
+          members: [{
+            kind: ConvertedSyntaxKind.PropertyDeclaration,
+            name: 'a',
+            optional: true,
+            type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
+          }]
+        }]
+      }));
     });
 
     it('supports readonly', () => {
@@ -227,6 +250,7 @@ describe('interfaces', () => {
             kind: ConvertedSyntaxKind.PropertyDeclaration,
             modifiers: [{kind: ConvertedSyntaxKind.ReadonlyModifier}],
             name: 'a',
+            optional: false,
             type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
           }]
         }]

@@ -216,11 +216,13 @@ describe('classes', () => {
             {
               kind: ConvertedSyntaxKind.PropertyDeclaration,
               name: 'a',
+              optional: false,
               type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
             },
             {
               kind: ConvertedSyntaxKind.PropertyDeclaration,
               name: 'b',
+              optional: false,
               type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'}
             }
           ]
@@ -239,6 +241,7 @@ describe('classes', () => {
           members: [{
             kind: ConvertedSyntaxKind.MethodDeclaration,
             name: 'f',
+            optional: false,
             type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'void'},
             parameters: []
           }]
@@ -256,6 +259,7 @@ describe('classes', () => {
               members: [{
                 kind: ConvertedSyntaxKind.MethodDeclaration,
                 name: 'f',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'boolean'},
                 parameters: [
                   {
@@ -291,6 +295,7 @@ describe('classes', () => {
                 kind: ConvertedSyntaxKind.MethodDeclaration,
                 modifiers: [{kind: ConvertedSyntaxKind.AbstractModifier}],
                 name: 'f',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
                 parameters: []
               }]
@@ -369,12 +374,14 @@ declare class X {
               kind: ConvertedSyntaxKind.PropertyDeclaration,
               modifiers: [{kind: ConvertedSyntaxKind.PrivateModifier}],
               name: '_a',
+              optional: false,
               type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
             },
             {
               kind: ConvertedSyntaxKind.MethodDeclaration,
               modifiers: [{kind: ConvertedSyntaxKind.PrivateModifier}],
               name: 'b',
+              optional: false,
               type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'boolean'},
               parameters: []
             }
@@ -400,16 +407,36 @@ declare class X {
               kind: ConvertedSyntaxKind.PropertyDeclaration,
               modifiers: [{kind: ConvertedSyntaxKind.ProtectedModifier}],
               name: 'a',
+              optional: false,
               type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
             },
             {
               kind: ConvertedSyntaxKind.MethodDeclaration,
               modifiers: [{kind: ConvertedSyntaxKind.ProtectedModifier}],
               name: 'b',
+              optional: false,
               type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'boolean'},
               parameters: []
             }
           ]
+        }]
+      }));
+    });
+
+    it('supports optional', () => {
+      expectTranslateJSON('declare class X { a?: number }').to.equal(prettyStringify({
+        kind: ConvertedSyntaxKind.SourceFile,
+        fileName: 'demo/some/main.ts',
+        statements: [{
+          kind: ConvertedSyntaxKind.ClassDeclaration,
+          modifiers: [],
+          name: 'X',
+          members: [{
+            kind: ConvertedSyntaxKind.PropertyDeclaration,
+            name: 'a',
+            optional: true,
+            type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
+          }]
         }]
       }));
     });
@@ -426,6 +453,7 @@ declare class X {
             kind: ConvertedSyntaxKind.PropertyDeclaration,
             modifiers: [{kind: ConvertedSyntaxKind.ReadonlyModifier}],
             name: 'a',
+            optional: false,
             type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
           }]
         }]
@@ -444,6 +472,7 @@ declare class X {
             kind: ConvertedSyntaxKind.PropertyDeclaration,
             modifiers: [{kind: ConvertedSyntaxKind.StaticModifier}],
             name: 'a',
+            optional: false,
             type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
           }]
         }]

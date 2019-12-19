@@ -25,16 +25,19 @@ declare var X: { new(a: number, b: string): XType };
               {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 name: 'a',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
               },
               {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 name: 'b',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'},
               },
               {
                 kind: ConvertedSyntaxKind.MethodDeclaration,
                 name: 'c',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'boolean'},
                 parameters: []
               }
@@ -48,16 +51,19 @@ declare var X: { new(a: number, b: string): XType };
               {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 name: 'a',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
               },
               {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 name: 'b',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'},
               },
               {
                 kind: ConvertedSyntaxKind.MethodDeclaration,
                 name: 'c',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'boolean'},
                 parameters: []
               },
@@ -112,16 +118,19 @@ declare var X: X;
               {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 name: 'a',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
               },
               {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 name: 'b',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'},
               },
               {
                 kind: ConvertedSyntaxKind.MethodDeclaration,
                 name: 'c',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'boolean'},
                 parameters: []
               }
@@ -135,16 +144,19 @@ declare var X: X;
               {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 name: 'a',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
               },
               {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 name: 'b',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'},
               },
               {
                 kind: ConvertedSyntaxKind.MethodDeclaration,
                 name: 'c',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'boolean'},
                 parameters: []
               },
@@ -197,6 +209,7 @@ declare var X: {
               {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 name: 'n',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
               },
             ]
@@ -209,6 +222,7 @@ declare var X: {
               {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 name: 'n',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
               },
               {
@@ -227,6 +241,7 @@ declare var X: {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 modifiers: [{kind: ConvertedSyntaxKind.StaticModifier}],
                 name: 'm',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'},
               },
             ]
@@ -262,6 +277,7 @@ declare var X: {
                   {
                     kind: ConvertedSyntaxKind.PropertyDeclaration,
                     name: 'n',
+                    optional: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
                   },
                 ]
@@ -274,6 +290,7 @@ declare var X: {
                   {
                     kind: ConvertedSyntaxKind.PropertyDeclaration,
                     name: 'n',
+                    optional: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
                   },
                   {
@@ -291,6 +308,7 @@ declare var X: {
                   {
                     kind: ConvertedSyntaxKind.PropertyDeclaration,
                     name: 'm',
+                    optional: false,
                     type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'},
                   },
                 ]
@@ -322,16 +340,19 @@ declare var X: { d: number; }
               {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 name: 'a',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
               },
               {
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 name: 'b',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'},
               },
               {
                 kind: ConvertedSyntaxKind.MethodDeclaration,
                 name: 'c',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'boolean'},
                 parameters: []
               },
@@ -339,6 +360,7 @@ declare var X: { d: number; }
                 kind: ConvertedSyntaxKind.PropertyDeclaration,
                 modifiers: [{kind: ConvertedSyntaxKind.StaticModifier}],
                 name: 'd',
+                optional: false,
                 type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
               }
             ]
@@ -387,11 +409,13 @@ declare var X: { d: number; }
     //                      {
     //                        kind: ConvertedSyntaxKind.PropertyDeclaration,
     //                        name: 'a',
+    //                        optional: false,
     //                        type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
     //                      },
     //                      {
     //                        kind: ConvertedSyntaxKind.PropertyDeclaration,
     //                        name: 'b',
+    //                        optional: false,
     //                        type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'},
     //                      },
     //                    ]

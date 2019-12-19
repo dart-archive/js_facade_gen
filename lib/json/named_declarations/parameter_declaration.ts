@@ -17,7 +17,6 @@ export class ParameterDeclaration extends NamedDeclaration {
 
     this.type = convertTypeNode(node.type);
     if (node.questionToken) {
-      // TODO(derekx): Do we want to mark parameters with default values as optional?
       this.optional = true;
     }
     if (node.dotDotDotToken) {
