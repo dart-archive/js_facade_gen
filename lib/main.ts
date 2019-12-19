@@ -8,6 +8,7 @@ import {ImportSummary, TranspilerBase} from './base';
 import DeclarationTranspiler from './declaration';
 import {FacadeConverter} from './facade_converter';
 import {convertAST} from './json/conversions';
+import {ConvertedSyntaxKind} from './json/converted_syntax_kinds';
 import * as merge from './merge';
 import mkdirP from './mkdirp';
 import ModuleTranspiler from './module';
@@ -197,6 +198,10 @@ export class Transpiler {
           }
         });
     this.checkForErrors(program);
+
+    if (this.options.toJSON) {
+      paths.set('converted_syntax_kinds.ts', JSON.stringify(ConvertedSyntaxKind, undefined, 2));
+    }
     return paths;
   }
 
