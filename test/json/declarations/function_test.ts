@@ -145,7 +145,39 @@ describe('functions', () => {
   });
 
   it('supports type predicate return types', () => {
-    expectTranslateJSON('declare function f(x: object): x is number;').to.equal(prettyStringify({
+    expectTranslateJSON('declare function f(x: number|string): x is number;')
+        .to.equal(prettyStringify({
+          kind: ConvertedSyntaxKind.SourceFile,
+          fileName: 'demo/some/main.ts',
+          statements: [{
+            kind: ConvertedSyntaxKind.FunctionDeclaration,
+            modifiers: [],
+            name: 'f',
+            parameters: [{
+              kind: ConvertedSyntaxKind.Parameter,
+              name: 'x',
+              optional: false,
+              rest: false,
+              type: {
+                kind: ConvertedSyntaxKind.UnionType,
+                types: [
+                  {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'},
+                  {kind: ConvertedSyntaxKind.KeywordType, typeName: 'string'}
+                ]
+              }
+            }],
+            type: {
+              kind: ConvertedSyntaxKind.TypePredicate,
+              assertsModifier: false,
+              parameterName: 'x',
+              type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
+            }
+          }]
+        }));
+  });
+
+  it('supports recursive function parameters', () => {
+    expectTranslateJSON('declare function f(fn: (a: (b: B) => C) => D);').to.equal(prettyStringify({
       kind: ConvertedSyntaxKind.SourceFile,
       fileName: 'demo/some/main.ts',
       statements: [{
@@ -154,17 +186,31 @@ describe('functions', () => {
         name: 'f',
         parameters: [{
           kind: ConvertedSyntaxKind.Parameter,
-          name: 'x',
+          name: 'fn',
           optional: false,
           rest: false,
-          type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'object'}
+          type: {
+            kind: ConvertedSyntaxKind.FunctionType,
+            parameters: [{
+              kind: ConvertedSyntaxKind.Parameter,
+              name: 'a',
+              optional: false,
+              rest: false,
+              type: {
+                kind: ConvertedSyntaxKind.FunctionType,
+                parameters: [{
+                  kind: ConvertedSyntaxKind.Parameter,
+                  name: 'b',
+                  optional: false,
+                  rest: false,
+                  type: {kind: ConvertedSyntaxKind.TypeReference, typeName: 'B'}
+                }],
+                type: {kind: ConvertedSyntaxKind.TypeReference, typeName: 'C'}
+              }
+            }],
+            type: {kind: ConvertedSyntaxKind.TypeReference, typeName: 'D'}
+          }
         }],
-        type: {
-          kind: ConvertedSyntaxKind.TypePredicate,
-          assertsModifier: false,
-          parameterName: 'x',
-          type: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
-        }
       }]
     }));
   });
