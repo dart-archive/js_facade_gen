@@ -116,6 +116,34 @@ describe('interfaces', () => {
           }
         ]
       }));
+
+      expectTranslateJSON('declare interface X<U extends number, T extends Promise<U>> {}')
+          .to.equal(prettyStringify({
+            kind: ConvertedSyntaxKind.SourceFile,
+            fileName: 'demo/some/main.ts',
+            statements: [{
+              kind: ConvertedSyntaxKind.InterfaceDeclaration,
+              modifiers: [],
+              name: 'X',
+              typeParameters: [
+                {
+                  kind: ConvertedSyntaxKind.TypeParameter,
+                  name: 'U',
+                  constraint: {kind: ConvertedSyntaxKind.KeywordType, typeName: 'number'}
+                },
+                {
+                  kind: ConvertedSyntaxKind.TypeParameter,
+                  name: 'T',
+                  constraint: {
+                    kind: ConvertedSyntaxKind.TypeReference,
+                    typeName: 'Promise',
+                    typeArguments: [{kind: ConvertedSyntaxKind.TypeReference, typeName: 'U'}]
+                  }
+                }
+              ],
+              members: []
+            }]
+          }));
     });
   });
 
