@@ -2,10 +2,13 @@ import * as dartStyle from 'dart-style';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as ts from 'typescript';
+
 import * as base from './base';
 import {ImportSummary, TranspilerBase} from './base';
 import DeclarationTranspiler from './declaration';
 import {FacadeConverter} from './facade_converter';
+import {convertAST} from './json/conversions';
+import {ConvertedSyntaxKind} from './json/converted_syntax_kinds';
 import * as merge from './merge';
 import mkdirP from './mkdirp';
 import ModuleTranspiler from './module';
@@ -64,7 +67,11 @@ export interface TranspilerOptions {
    * Emit anonymous tags on all classes that have neither constructors nor static members.
    */
   trustJSTypes?: boolean;
-
+  /**
+   * Experimental option to emit the source file ASTs as JSON after performing preliminary
+   * processing that makes the format compatible with Dart.
+   */
+  toJSON?: boolean;
   /**
    * Experimental JS Interop specific option to promote properties with function
    * types to methods instead of properties with a function type. This the makes
@@ -183,8 +190,18 @@ export class Transpiler {
     this.errors = [];
     program.getSourceFiles()
         .filter((f: ts.SourceFile) => entryPoints.includes(f.fileName))
-        .forEach((f) => paths.set(f.fileName, this.translate(f)));
+        .forEach((f) => {
+          if (this.options.toJSON) {
+            paths.set(f.fileName, this.convertToJSON(f));
+          } else {
+            paths.set(f.fileName, this.translate(f));
+          }
+        });
     this.checkForErrors(program);
+
+    if (this.options.toJSON) {
+      paths.set('converted_syntax_kinds.ts', JSON.stringify(ConvertedSyntaxKind, undefined, 2));
+    }
     return paths;
   }
 
@@ -328,7 +345,12 @@ export class Transpiler {
 
   // Visible for testing.
   getOutputPath(filePath: string, destinationRoot: string): string {
-    const relative = this.getDartFileName(filePath);
+    let relative: string;
+    if (this.options.toJSON) {
+      relative = this.getJSONFileName(filePath);
+    } else {
+      relative = this.getDartFileName(filePath);
+    }
     return this.normalizeSlashes(path.join(destinationRoot, relative));
   }
 
@@ -389,6 +411,11 @@ export class Transpiler {
       return result;
     }
     return this.formatCode(result, sourceFile);
+  }
+
+  private convertToJSON(sourceFile: ts.SourceFile): string {
+    const converted = convertAST(sourceFile);
+    return JSON.stringify(converted, undefined, 2);
   }
 
   private formatCode(code: string, context: ts.Node) {
@@ -462,6 +489,17 @@ export class Transpiler {
     filePath = filePath.replace(/\.(js|es6|d\.ts|ts)$/, '.dart');
     // Normalize from node module file path pattern to
     filePath = filePath.replace(/([^/]+)\/index.dart$/, '$1.dart');
+    return this.getRelativeFileName(filePath);
+  }
+
+  getJSONFileName(filePath?: string): string {
+    if (filePath === undefined) {
+      filePath = path.resolve(this.currentFile.fileName);
+    }
+    filePath = this.normalizeSlashes(filePath);
+    filePath = filePath.replace(/\.(js|es6|d\.ts|ts)$/, '.json');
+    // Normalize from node module file path pattern to
+    filePath = filePath.replace(/([^/]+)\/index.dart$/, '$1.json');
     return this.getRelativeFileName(filePath);
   }
 

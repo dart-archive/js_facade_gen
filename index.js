@@ -6,7 +6,7 @@ var args = require('minimist')(process.argv.slice(2), {
   string: ['base-path'],
   boolean: [
     'semantic-diagnostics', 'skip-formatting', 'generate-html', 'rename-conflicting-types',
-    'explicit-static', 'trust-js-types'
+    'explicit-static', 'trust-js-types', 'to-json'
   ],
   default: {'base-path': ''},
   alias: {
@@ -16,7 +16,8 @@ var args = require('minimist')(process.argv.slice(2), {
     'generate-html': 'generateHTML',
     'rename-conflicting-types': 'renameConflictingTypes',
     'explicit-static': 'explicitStatic',
-    'trust-js-types': 'trustJSTypes'
+    'trust-js-types': 'trustJSTypes',
+    'to-json': 'toJSON'
   }
 });
 try {

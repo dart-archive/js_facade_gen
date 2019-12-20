@@ -59,7 +59,7 @@ gulp.task('test.compile', gulp.series('compile', function(done) {
     done();
     return;
   }
-  return gulp.src(['test/*.ts', 'node_modules/dart-style/dart-style.d.ts'], {base: '.'})
+  return gulp.src(['test/**/*.ts', 'node_modules/dart-style/dart-style.d.ts'], {base: '.'})
       .pipe(sourcemaps.init())
       .pipe(tsProject())
       .on('error', onError)
