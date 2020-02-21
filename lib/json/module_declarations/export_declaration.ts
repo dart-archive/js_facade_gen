@@ -12,7 +12,7 @@ export class ExportDeclaration extends Node {
     super(node, ConvertedSyntaxKind.ExportDeclaration);
 
     if (node.exportClause) {
-      this.exportClause = new NamedExports(node.exportClause);
+      this.exportClause = new NamedExports(node.exportClause as tsNamedExports);
     }
     if (node.moduleSpecifier) {
       this.moduleSpecifier = convertExpression(node.moduleSpecifier);
