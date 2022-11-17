@@ -1,4 +1,10 @@
-[![Build Status](https://travis-ci.org/dart-lang/js_facade_gen.svg?branch=master)](https://travis-ci.org/dart-lang/js_facade_gen)
+----
+> **Warning**
+
+> # This repository is no longer being maintained and is archived.
+
+> For details on how to write interop interfaces using `package:js`, please visit the [package:js pub page](https://pub.dev/packages/js) or the [Dart documentation for JS interop](https://dart.dev/web/js-interop). The Dart team is working on improving JS interop in the future to make writing such interfaces easier. If there is interest in continuing this repository, feel free to contribute by forking.
+----
 
 Generates `package:js` JavaScript interop facades for arbitrary TypeScript libraries.
 
