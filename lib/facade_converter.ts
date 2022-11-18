@@ -639,7 +639,8 @@ export class FacadeConverter extends base.TranspilerBase {
     }
     const typeDeclaration = symbol.declarations.find((declaration: ts.Declaration) => {
       return ts.isInterfaceDeclaration(declaration) || ts.isClassDeclaration(declaration) ||
-          ts.isTypeAliasDeclaration(declaration) || ts.isTypeParameterDeclaration(declaration);
+          ts.isTypeAliasDeclaration(declaration) || ts.isTypeParameterDeclaration(declaration) ||
+          ts.isEnumDeclaration(declaration);
     });
     if (!typeDeclaration) {
       this.reportError(n, `no type declarations for symbol ${symbol.name}`);
